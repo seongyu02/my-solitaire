@@ -1,93 +1,114 @@
 import React from "react";
-import { View, TouchableOpacity, Text, StyleSheet } from "react-native";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-export default function Deck({ deck, waste, onFlip, onWastePress, selected }) {
-  const topWaste = waste[waste.length - 1];
+// 1. 필요한 이미지와 컴포넌트 불러오기
+import backImg from "../assets/images/back.png";
+import Card from "./Card";
+
+// 👇 [수정] c0 대신 emp(empty.png)를 불러옵니다.
+import emp from "../assets/images/emp.png";
+
+export default function Deck({ deck = [], waste = [], onFlip, onWastePress, selected }) {
+  // 맨 위 버린 카드
+  const topWaste = waste.length > 0 ? waste[waste.length - 1] : null;
 
   const isWasteSelected =
     selected &&
     selected.pile === "waste" &&
     selected.index === waste.length - 1;
 
+  const handleWastePress = (card) => {
+    if (onWastePress) {
+      onWastePress({
+        pile: "waste",
+        index: waste.length - 1,
+        card: card,
+      });
+    }
+  };
+
   return (
     <View style={styles.container}>
-      {/* 덱 */}
+      {/* 1. 덱 (카드 뒷면 더미) */}
       <TouchableOpacity
-        style={[styles.deck, deck.length === 0 && styles.deckEmpty]}
+        style={styles.cardSlot}
         onPress={onFlip}
         activeOpacity={deck.length > 0 ? 0.8 : 1}
       >
-        {deck.length === 0 ? null : <View style={styles.deckBack} />}
+        {deck.length > 0 ? (
+          // 카드가 있으면: 뒷면 이미지
+          <Image source={backImg} style={styles.image} resizeMode="contain" />
+        ) : (
+          // 카드가 없으면: 빈 배경(emp) + 새로고침 아이콘
+          <View style={styles.emptyContainer}>
+            <Image source={emp} style={styles.baseImage} resizeMode="contain" />
+            <View style={styles.overlay}>
+              <Text style={styles.refreshIcon}>↺</Text>
+            </View>
+          </View>
+        )}
       </TouchableOpacity>
 
-      {/* 버린 카드 더미 */}
-      <TouchableOpacity
-        style={[styles.waste, isWasteSelected && styles.selectedWaste]}
-        onPress={() =>
-          topWaste &&
-          onWastePress &&
-          onWastePress({
-            pile: "waste",
-            index: waste.length - 1,
-            card: topWaste
-          })
-        }
-        activeOpacity={topWaste ? 0.8 : 1}
-      >
+      {/* 2. 버린 카드 더미 (오른쪽) */}
+      <View style={styles.cardSlot}>
         {topWaste ? (
-          <Text style={{ fontSize: 16, color: topWaste.color }}>
-            {topWaste.suit} {topWaste.num}
-          </Text>
-        ) : null}
-      </TouchableOpacity>
+          // 카드가 있으면: 내 카드 컴포넌트 사용
+          <Card
+            card={topWaste}
+            onPress={handleWastePress}
+            isSelected={isWasteSelected}
+          />
+        ) : (
+          // 👇 [수정] 카드가 없으면: emp 이미지 보여줌
+          <Image source={emp} style={styles.baseImage} resizeMode="contain" />
+        )}
+      </View>
     </View>
   );
 }
 
-const CARD_W = 52;
-const CARD_H = 78;
+const CARD_W = 60;
+const CARD_H = 90;
 
 const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
-    alignItems: "center"
+    alignItems: "center",
+    justifyContent: "flex-end", // 오른쪽 정렬
+    paddingRight: 10,
+    marginBottom: 10,
   },
-  deck: {
+  cardSlot: {
     width: CARD_W,
     height: CARD_H,
-    borderRadius: 6,
-    backgroundColor: "#0057a6",
+    marginLeft: 15, // 덱과 버린 카드 사이 간격
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: "#003a70"
   },
-  deckBack: {
-    width: "90%",
-    height: "90%",
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: "#ffffff"
-  },
-  deckEmpty: {
-    backgroundColor: "transparent",
-    borderStyle: "dashed",
-    borderWidth: 1,
-    borderColor: "#777"
-  },
-  waste: {
-    width: CARD_W,
-    height: CARD_H,
-    borderWidth: 1,
+  image: {
+    width: "100%",
+    height: "100%",
     borderRadius: 6,
+  },
+  baseImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 6,
+    opacity: 0.5,
+  },
+  emptyContainer: {
+    width: "100%",
+    height: "100%",
+    position: "relative",
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
     justifyContent: "center",
     alignItems: "center",
-    borderColor: "#ccc",
-    backgroundColor: "#ffffff"
   },
-  selectedWaste: {
-    borderColor: "#ffcc33",
-    borderWidth: 2
-  }
+  refreshIcon: {
+    fontSize: 24,
+    color: "black",
+    fontWeight: "bold",
+  },
 });
