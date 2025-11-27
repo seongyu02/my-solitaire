@@ -11,10 +11,16 @@ export default function Deck({ deck, waste, onFlip, onWastePress, selected }) {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.deck} onPress={onFlip}>
-        {deck.length > 0 ? <Text>🂠</Text> : <Text>❌</Text>}
+      {/* 덱 */}
+      <TouchableOpacity
+        style={[styles.deck, deck.length === 0 && styles.deckEmpty]}
+        onPress={onFlip}
+        activeOpacity={deck.length > 0 ? 0.8 : 1}
+      >
+        {deck.length === 0 ? null : <View style={styles.deckBack} />}
       </TouchableOpacity>
 
+      {/* 버린 카드 더미 */}
       <TouchableOpacity
         style={[styles.waste, isWasteSelected && styles.selectedWaste]}
         onPress={() =>
@@ -28,38 +34,60 @@ export default function Deck({ deck, waste, onFlip, onWastePress, selected }) {
         }
         activeOpacity={topWaste ? 0.8 : 1}
       >
-        {topWaste && (
-          <Text style={{ fontSize: 18, color: topWaste.color }}>
+        {topWaste ? (
+          <Text style={{ fontSize: 16, color: topWaste.color }}>
             {topWaste.suit} {topWaste.num}
           </Text>
-        )}
+        ) : null}
       </TouchableOpacity>
     </View>
   );
 }
 
+const CARD_W = 52;
+const CARD_H = 78;
+
 const styles = StyleSheet.create({
-  container: { flexDirection: "row", marginBottom: 20 },
+  container: {
+    flexDirection: "row",
+    alignItems: "center"
+  },
   deck: {
-    width: 60,
-    height: 90,
-    backgroundColor: "#1e90ff",
+    width: CARD_W,
+    height: CARD_H,
+    borderRadius: 6,
+    backgroundColor: "#0057a6",
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 8,
-    marginRight: 10
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: "#003a70"
+  },
+  deckBack: {
+    width: "90%",
+    height: "90%",
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: "#ffffff"
+  },
+  deckEmpty: {
+    backgroundColor: "transparent",
+    borderStyle: "dashed",
+    borderWidth: 1,
+    borderColor: "#777"
   },
   waste: {
-    width: 60,
-    height: 90,
+    width: CARD_W,
+    height: CARD_H,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 6,
     justifyContent: "center",
     alignItems: "center",
-    borderColor: "#ccc"
+    borderColor: "#ccc",
+    backgroundColor: "#ffffff"
   },
   selectedWaste: {
-    borderColor: "#ff6347",
+    borderColor: "#ffcc33",
     borderWidth: 2
   }
 });

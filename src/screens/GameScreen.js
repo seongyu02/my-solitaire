@@ -1,11 +1,12 @@
+// src/screens/GameScreen.js
 import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
   ScrollView,
   Text,
-  Button,
-  Alert
+  Alert,
+  TouchableOpacity
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { initGame } from "../game/initGame";
@@ -20,33 +21,32 @@ import {
 } from "../game/rules";
 
 export default function GameScreen() {
-  const [game, setGame] = useState(null);     // deck, waste, columns, foundations
+  const [game, setGame] = useState(null);
   const [loaded, setLoaded] = useState(false);
-  const [selected, setSelected] = useState(null); // 선택된 카드 정보
+  const [selected, setSelected] = useState(null);
 
-  // 🔥 게임 불러오기 (자동 이어하기)
   useEffect(() => {
     const loadGame = async () => {
       try {
         const saved = await AsyncStorage.getItem("solitaire_game");
         if (saved) {
           const parsed = JSON.parse(saved);
-          // foundations 없으면 기본값 추가
-          if (!parsed.foundations || parsed.foundations.length !== 4) {
-            parsed.foundations = [[], [], [], []];
+          const withFoundations = ensureFoundations(parsed);
+          if (typeof withFoundations.moves !== "number") {
+            withFoundations.moves = 0;
           }
-          setGame(parsed);
+          setGame(withFoundations);
         } else {
-          const fresh = initGame();
-          if (!fresh.foundations) {
-            fresh.foundations = [[], [], [], []];
-          }
+          let fresh = initGame();
+          fresh = ensureFoundations(fresh);
+          fresh.moves = 0;
           setGame(fresh);
         }
       } catch (e) {
         console.log("불러오기 에러:", e);
-        const fresh = initGame();
-        fresh.foundations = fresh.foundations || [[], [], [], []];
+        let fresh = initGame();
+        fresh = ensureFoundations(fresh);
+        fresh.moves = 0;
         setGame(fresh);
       }
       setLoaded(true);
@@ -55,7 +55,6 @@ export default function GameScreen() {
     loadGame();
   }, []);
 
-  // 🔥 게임 상태 자동 저장
   useEffect(() => {
     const saveGame = async () => {
       if (!game) return;
@@ -76,16 +75,15 @@ export default function GameScreen() {
     return g;
   };
 
-  // 새 게임
   const resetGame = async () => {
     let newGame = initGame();
     newGame = ensureFoundations(newGame);
+    newGame.moves = 0;
     setSelected(null);
     setGame(newGame);
     await AsyncStorage.setItem("solitaire_game", JSON.stringify(newGame));
   };
 
-  // 덱에서 한 장 뒤집기
   const flipDeck = () => {
     setSelected(null);
     setGame((prev) => {
@@ -101,17 +99,21 @@ export default function GameScreen() {
     });
   };
 
-  // 이동 후 승리 체크
-  const afterMove = (newGame) => {
-    setGame(ensureFoundations(newGame));
+  const afterMove = (updatedGameBase) => {
+    const moves = (game?.moves || 0) + 1;
+    const updated = ensureFoundations({
+      ...updatedGameBase,
+      moves
+    });
+
+    setGame(updated);
     setSelected(null);
 
-    if (isGameWon(newGame.foundations)) {
+    if (isGameWon(updated.foundations)) {
       Alert.alert("축하합니다!", "모든 카드를 완성했습니다 🎉");
     }
   };
 
-  // 테이블(컬럼)으로 이동 시도
   const moveSelectionToColumn = (destColumnIndex) => {
     if (!selected || !game) return;
 
@@ -120,38 +122,31 @@ export default function GameScreen() {
     let deck = [...game.deck];
     let waste = [...game.waste];
 
-    // 출발 카드들 계산
     let movingCards = [];
     if (selected.pile === "tableau") {
       const srcCol = columns[selected.columnIndex];
       movingCards = srcCol.slice(selected.cardIndex);
 
       if (!isValidSequence(movingCards)) {
-        console.log("유효하지 않은 시퀀스");
         return;
       }
     } else if (selected.pile === "waste") {
-      // waste 맨 위 카드만 이동 가능
       if (selected.index !== waste.length - 1) return;
       movingCards = [selected.card];
     } else {
-      // foundation에서 tableau로는 이동 안 함(간단 버전)
       return;
     }
 
     const destCol = columns[destColumnIndex];
     if (!canMoveToTableau(movingCards, destCol)) {
-      console.log("여기로는 못 옮김");
       return;
     }
 
-    // 실제 이동 처리
     if (selected.pile === "tableau") {
       const srcCol = columns[selected.columnIndex];
       const remain = srcCol.slice(0, selected.cardIndex);
       columns[selected.columnIndex] = remain;
 
-      // 남아 있는 컬럼에서 맨 위 카드 앞면으로 뒤집기
       if (remain.length > 0) {
         const last = remain[remain.length - 1];
         if (!last.faceUp) {
@@ -177,7 +172,6 @@ export default function GameScreen() {
     afterMove(newGame);
   };
 
-  // 파운데이션으로 이동 시도
   const moveSelectionToFoundation = (foundationIndex) => {
     if (!selected || !game) return;
 
@@ -190,17 +184,14 @@ export default function GameScreen() {
 
     if (selected.pile === "tableau") {
       const srcCol = columns[selected.columnIndex];
-      // 맨 위 카드만 가능
       if (selected.cardIndex !== srcCol.length - 1) return;
       card = srcCol[selected.cardIndex];
       if (!card.faceUp) return;
       if (!canMoveToFoundation(card, foundations[foundationIndex])) return;
 
-      // 컬럼에서 제거
       const remain = srcCol.slice(0, srcCol.length - 1);
       columns[selected.columnIndex] = remain;
 
-      // 남은 카드 맨 위 뒤집기
       if (remain.length > 0) {
         const last = remain[remain.length - 1];
         if (!last.faceUp) {
@@ -211,13 +202,11 @@ export default function GameScreen() {
         }
       }
     } else if (selected.pile === "waste") {
-      // waste 맨 위 카드만
       if (selected.index !== waste.length - 1) return;
       card = selected.card;
       if (!canMoveToFoundation(card, foundations[foundationIndex])) return;
       waste = waste.slice(0, waste.length - 1);
     } else {
-      // foundation 간 이동/다른 곳에서 이동은 지원 X
       return;
     }
 
@@ -233,7 +222,6 @@ export default function GameScreen() {
     afterMove(newGame);
   };
 
-  // 컬럼 안/컬럼 간 카드 눌렀을 때
   const handleCardPress = (info) => {
     if (!game) return;
 
@@ -242,7 +230,6 @@ export default function GameScreen() {
       return;
     }
 
-    // 같은 카드 다시 누르면 선택 해제
     if (
       selected.pile === info.pile &&
       selected.columnIndex === info.columnIndex &&
@@ -252,16 +239,13 @@ export default function GameScreen() {
       return;
     }
 
-    // 이미 선택된 카드가 있고, 다른 컬럼을 눌렀으면 → 그 컬럼으로 이동 시도
     moveSelectionToColumn(info.columnIndex);
   };
 
-  // 빈 컬럼 눌렀을 때
   const handleEmptyColumnPress = (columnIndex) => {
     moveSelectionToColumn(columnIndex);
   };
 
-  // waste 카드 눌렀을 때
   const handleWastePress = (info) => {
     if (!game || game.waste.length === 0) return;
 
@@ -276,92 +260,178 @@ export default function GameScreen() {
     }
   };
 
-  // 파운데이션 칸 눌렀을 때
   const handleFoundationPress = (info) => {
-    if (!selected) {
-      // foundation에서 다시 빼오는 기능은 지금은 안 넣음
-      return;
-    }
+    if (!selected) return;
     moveSelectionToFoundation(info.foundationIndex);
   };
 
   if (!loaded || !game) {
     return (
-      <View style={styles.loading}>
-        <Text>게임 불러오는 중...</Text>
+      <View style={styles.loadingRoot}>
+        <View style={styles.loadingBox}>
+          <Text style={styles.loadingText}>게임 불러오는 중...</Text>
+        </View>
       </View>
     );
   }
 
+  const moves = game.moves || 0;
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>노아의 솔리테어 🎴</Text>
-        <Text style={styles.sub}>클론다이크 규칙 + 자동 이어하기</Text>
-        <Button title="새 게임" onPress={resetGame} />
+    <View style={styles.root}>
+      {/* 상단 상태 바 (게임 내부 UI) */}
+      <View style={styles.statusBar}>
+        <Text style={styles.statusText}>00:00</Text>
+        <Text style={styles.statusCenter}>0</Text>
+        <Text style={styles.statusText}>이동: {moves}</Text>
       </View>
 
-      {/* 상단: 덱 + 파운데이션 */}
-      <View style={styles.topRow}>
-        <Deck
-          deck={game.deck}
-          waste={game.waste}
-          onFlip={flipDeck}
-          onWastePress={handleWastePress}
-          selected={selected}
-        />
-        <Foundations
-          foundations={game.foundations}
-          onPress={handleFoundationPress}
-          selected={selected}
-        />
-      </View>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* 위쪽: 왼쪽 파운데이션 / 오른쪽 덱 */}
+        <View style={styles.topRow}>
+          <View style={styles.foundationsWrapper}>
+            <Foundations
+              foundations={game.foundations}
+              onPress={handleFoundationPress}
+              selected={selected}
+            />
+          </View>
+          <View style={styles.deckWrapper}>
+            <Deck
+              deck={game.deck}
+              waste={game.waste}
+              onFlip={flipDeck}
+              onWastePress={handleWastePress}
+              selected={selected}
+            />
+          </View>
+        </View>
 
-      {/* 7개의 테이블 컬럼 */}
-      <View style={styles.columns}>
-        {game.columns.map((col, index) => (
-          <Column
-            key={index}
-            columnIndex={index}
-            cards={col}
-            onCardPress={handleCardPress}
-            onEmptyPress={handleEmptyColumnPress}
-            selected={selected}
-          />
-        ))}
+        {/* 7개 컬럼 */}
+        <View style={styles.columns}>
+          {game.columns.map((col, index) => (
+            <Column
+              key={index}
+              columnIndex={index}
+              cards={col}
+              onCardPress={handleCardPress}
+              onEmptyPress={handleEmptyColumnPress}
+              selected={selected}
+            />
+          ))}
+        </View>
+      </ScrollView>
+
+      {/* 하단 바 */}
+      <View style={styles.bottomBar}>
+        <View style={styles.bottomLeft}>
+          <Text style={styles.bottomLabel}>설정</Text>
+        </View>
+        <TouchableOpacity style={styles.randomButton} onPress={resetGame}>
+          <Text style={styles.randomButtonText}>랜덤 게임</Text>
+        </TouchableOpacity>
+        <View style={styles.bottomRight}>
+          <Text style={styles.bottomLabel}>알림</Text>
+        </View>
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 16
+  root: {
+    flex: 1,
+    backgroundColor: "#006b35"
   },
-  loading: {
+  loadingRoot: {
     flex: 1,
     justifyContent: "center",
-    alignItems: "center"
+    alignItems: "center",
+    backgroundColor: "#006b35"
   },
-  header: {
-    marginBottom: 16
+  loadingBox: {
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: "rgba(0,0,0,0.5)"
   },
-  title: {
-    fontSize: 24,
+  loadingText: {
+    color: "#fff"
+  },
+  statusBar: {
+    height: 32,
+    backgroundColor: "#001820",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#00352a"
+  },
+  statusText: {
+    color: "#ffe89b",
+    fontSize: 11
+  },
+  statusCenter: {
+    color: "#ffe89b",
+    fontSize: 13,
     fontWeight: "bold"
   },
-  sub: {
-    marginVertical: 4,
-    color: "#555"
+  container: {
+    flexGrow: 1,
+    paddingHorizontal: 8,
+    paddingTop: 10,
+    paddingBottom: 4
   },
   topRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start"
+    alignItems: "flex-start",
+    marginBottom: 12
+  },
+  foundationsWrapper: {
+    flex: 1
+  },
+  deckWrapper: {
+    justifyContent: "flex-start",
+    alignItems: "flex-end"
   },
   columns: {
     flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 16
+    justifyContent: "space-between", // 7개를 가로에 쫙
+    alignItems: "flex-start",
+    marginTop: 4
+  },
+  bottomBar: {
+    height: 48,
+    backgroundColor: "#001017",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12
+  },
+  bottomLeft: {
+    width: 60,
+    alignItems: "flex-start"
+  },
+  bottomRight: {
+    width: 60,
+    alignItems: "flex-end"
+  },
+  bottomLabel: {
+    color: "#ccc",
+    fontSize: 11
+  },
+  randomButton: {
+    paddingHorizontal: 22,
+    paddingVertical: 6,
+    backgroundColor: "#00783a",
+    borderRadius: 16
+  },
+  randomButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 13
   }
 });

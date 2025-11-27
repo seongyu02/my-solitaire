@@ -1,5 +1,10 @@
+// src/components/Column.js
 import React from "react";
-import { View, StyleSheet, TouchableOpacity } from "react-native";
+import {
+  View,
+  TouchableOpacity,
+  StyleSheet
+} from "react-native";
 import Card from "./Card";
 
 export default function Column({
@@ -14,53 +19,63 @@ export default function Column({
   };
 
   return (
-    <TouchableOpacity
-      activeOpacity={1}
-      onPress={cards.length === 0 ? handleEmptyPress : undefined}
-      style={styles.column}
-    >
-      {cards.map((card, index) => {
-        const isSelected =
-          selected &&
-          selected.pile === "tableau" &&
-          selected.columnIndex === columnIndex &&
-          selected.cardIndex === index;
+    <View style={styles.column}>
+      {cards.length === 0 ? (
+        <TouchableOpacity
+          style={styles.emptySlot}
+          onPress={handleEmptyPress}
+          activeOpacity={0.8}
+        />
+      ) : (
+        cards.map((card, index) => {
+          const isSelected =
+            selected &&
+            selected.pile === "tableau" &&
+            selected.columnIndex === columnIndex &&
+            selected.cardIndex === index;
 
-        return (
-          <View key={card.id} style={{ marginTop: index === 0 ? 0 : 20 }}>
-            <Card
-              card={card}
-              isSelected={isSelected}
-              onPress={() =>
-                onCardPress &&
-                onCardPress({
-                  pile: "tableau",
-                  columnIndex,
-                  cardIndex: index,
-                  card
-                })
-              }
-            />
-          </View>
-        );
-      })}
-      {cards.length === 0 && <View style={styles.placeholder} />}
-    </TouchableOpacity>
+          return (
+            <View
+              key={card.id || `${columnIndex}-${index}`}
+              // 두 번째 카드부터는 위 카드랑 겹치게
+              style={index === 0 ? null : styles.overlap}
+            >
+              <Card
+                card={card}
+                isSelected={isSelected}
+                onPress={() =>
+                  onCardPress &&
+                  onCardPress({
+                    pile: "tableau",
+                    columnIndex,
+                    cardIndex: index,
+                    card
+                  })
+                }
+              />
+            </View>
+          );
+        })
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   column: {
-    width: 70,
-    minHeight: 120,
-    marginHorizontal: 5
+    flex: 1,                // 7개 컬럼이 가로를 7등분
+    marginHorizontal: 2,    // 컬럼 사이 살짝 여백
+    alignItems: "center"
   },
-  placeholder: {
-    width: 60,
-    height: 90,
-    borderRadius: 8,
+  overlap: {
+    marginTop: -26          // 값 줄이면 카드 더 겹쳐짐 / 늘리면 더 벌어짐
+  },
+  emptySlot: {
+    width: "100%",
+    aspectRatio: 52 / 78,
+    borderRadius: 6,
     borderWidth: 1,
-    borderStyle: "dashed",
-    borderColor: "#aaa"
+    borderColor: "#d0d0d0",
+    backgroundColor: "rgba(255,255,255,0.08)"
   }
 });
