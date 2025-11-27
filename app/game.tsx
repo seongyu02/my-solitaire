@@ -1,11 +1,11 @@
-import StartScreen from "../src/screens/StartScreen";
+import GameScreen from "../src/screens/GameScreen";
 import { StatusBar } from "expo-status-bar";
 
-export default function Index() {
+export default function Game() {
   return (
     <>
       <StatusBar hidden={true} />
-      <StartScreen />
+      <GameScreen />
     </>
   );
 }
