@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     alignItems: "center"
   },
   overlap: {
-    marginTop: -26          // 값 줄이면 카드 더 겹쳐짐 / 늘리면 더 벌어짐
+    marginTop: -65          // 값 줄이면 카드 더 겹쳐짐 / 늘리면 더 벌어짐
   },
   emptySlot: {
     width: "100%",
