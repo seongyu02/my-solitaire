@@ -140,8 +140,8 @@ export default function Card({ card, onPress, isSelected }) {
 
 const styles = StyleSheet.create({
   card: {
-    width: 60,
-    height: 90,
+    width: 49,
+    height: 70,
     borderRadius: 6,
     backgroundColor: "#ffffff",
     justifyContent: "center",

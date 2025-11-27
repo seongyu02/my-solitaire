@@ -67,8 +67,8 @@ export default function Deck({ deck = [], waste = [], onFlip, onWastePress, sele
   );
 }
 
-const CARD_W = 60;
-const CARD_H = 90;
+const CARD_W = 49;
+const CARD_H = 70;
 
 const styles = StyleSheet.create({
   container: {
