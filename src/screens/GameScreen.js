@@ -212,23 +212,41 @@ export default function GameScreen() {
   // -----------------------------
   // 덱에서 카드 한 장 뽑기
   // -----------------------------
-  const flipDeck = () => {
-    setSelected(null);
-    setGame((prev) => {
-      if (!prev || prev.deck.length === 0) return prev;
-      const top = { ...prev.deck[0], faceUp: true };
-      const newWaste = [...prev.waste, top];
-      const newDeck = prev.deck.slice(1);
-      const updated = ensureFoundations({
+const flipDeck = () => {
+  setSelected(null);
+  setGame((prev) => {
+    if (!prev) return prev;
+
+    // ⭐ 덱이 비었다면 버린 카드(waste)를 다시 deck으로 복구
+    if (prev.deck.length === 0) {
+      // waste의 카드를 모두 뒤집어서 deck으로 되돌림
+      const newDeck = prev.waste.map((card) => ({
+        ...card,
+        faceUp: false,
+      }));
+
+      return {
         ...prev,
         deck: newDeck,
-        waste: newWaste
-      });
-      // flip 할 때도 효과음
-      playSfx();
-      return updated;
+        waste: [],
+      };
+    }
+
+    // ⭐ 평소처럼 카드 1장 flip
+    const top = { ...prev.deck[0], faceUp: true };
+    const newWaste = [...prev.waste, top];
+    const newDeck = prev.deck.slice(1);
+
+    const updated = ensureFoundations({
+      ...prev,
+      deck: newDeck,
+      waste: newWaste,
     });
-  };
+
+    playSfx();
+    return updated;
+  });
+};
 
   const afterMove = (updatedGameBase) => {
     const moves = (game?.moves || 0) + 1;
