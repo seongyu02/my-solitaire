@@ -1,8 +1,11 @@
 import React from "react";
-import { Image, StyleSheet, Text, TouchableOpacity } from "react-native";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-// 👇👇👇 [중요] 이 줄이 없어서 에러가 났던 겁니다! 👇👇👇
+// 1. 기본 이미지들
 import backImg from '../assets/images/back.png';
+
+// 테두리 이미지
+import selectedBorder from '../assets/images/selected_border.png';
 
 // [Club - 클로버]
 import c1 from '../assets/images/c/c1.png';
@@ -99,27 +102,33 @@ export default function Card({ card, onPress, isSelected }) {
   const rankNum = getRankNumber(card.num);
   const cardImageSource = imageMap[suitCode] && imageMap[suitCode][rankNum];
 
-  const isImageVisible = card.faceUp && cardImageSource;
-  const isBackImageVisible = !card.faceUp;
+  // 이미지가 존재하는지 확인 (앞면 이미지 존재 OR 뒷면인 경우)
+  const hasImage = (card.faceUp && cardImageSource) || (!card.faceUp);
 
   return (
     <TouchableOpacity
-      activeOpacity={0.9}
+      // 누를 때 투명도 50%
+      activeOpacity={0.5} 
       onPress={handlePress}
       style={[
         styles.card,
-        isSelected && styles.selectedCard,
-        // 이미지가 보일 때는 투명 배경
-        (isImageVisible || isBackImageVisible) && styles.transparentContainer
+        // 텍스트 카드일 때만 전체 흰색 배경 + 테두리 적용
+        !hasImage && styles.textCard,
       ]}
     >
+      {/* ★ [핵심 수정] 이미지가 있을 때만 뒤에 '축소된 흰색 배경'을 깝니다.
+        top, left, right, bottom을 1씩 줘서 안쪽으로 숨깁니다.
+      */}
+      {hasImage && <View style={styles.shrunkBackground} />}
+
+      {/* 2. 카드 내용 (앞면/뒷면) */}
       {card.faceUp ? (
         // [앞면]
         cardImageSource ? (
           <Image 
             source={cardImageSource} 
             style={styles.fullImage} 
-            resizeMode="contain"
+            resizeMode="stretch" 
           />
         ) : (
           <Text style={[styles.text, { color: card.color }]}>
@@ -127,11 +136,21 @@ export default function Card({ card, onPress, isSelected }) {
           </Text>
         )
       ) : (
-        // [뒷면] 여기에서 backImg를 사용합니다
+        // [뒷면]
         <Image 
           source={backImg} 
           style={styles.fullImage} 
-          resizeMode="contain"
+          resizeMode="stretch"
+        />
+      )}
+
+      {/* 3. 선택 효과 (테두리 이미지) */}
+      {isSelected && (
+        <Image 
+          source={selectedBorder} 
+          style={styles.overlayImage} 
+          resizeMode="stretch"
+          pointerEvents="none" 
         />
       )}
     </TouchableOpacity>
@@ -140,33 +159,54 @@ export default function Card({ card, onPress, isSelected }) {
 
 const styles = StyleSheet.create({
   card: {
+    // 49 x 70 크기
     width: 49,
     height: 70,
-    borderRadius: 6,
-    backgroundColor: "#ffffff",
+    borderRadius: 0,
+    
+    // 기본 배경 투명 (이미지 가장자리 빈 공간에 바닥색이 보이도록)
+    backgroundColor: 'transparent',
+    
+    overflow: "hidden", 
     justifyContent: "center",
     alignItems: "center",
+  },
+  
+  // 이미지가 없을 때(텍스트 카드) 적용할 스타일
+  textCard: {
+    backgroundColor: "#ffffff",
     borderWidth: 1,
     borderColor: "#d0d0d0",
-    overflow: "hidden",
-    margin: 2, 
   },
-  transparentContainer: {
-    backgroundColor: 'transparent', 
-    borderWidth: 0,                 
-    borderColor: 'transparent',
-    overflow: 'visible',            
+
+  // ★ [추가] 축소된 흰색 배경 (이미지 뒤 비침 방지용)
+  shrunkBackground: {
+    position: 'absolute',
+    top: 1,    // 위에서 1px 띄움
+    bottom: 1, // 아래에서 1px 띄움
+    left: 1,   // 왼쪽에서 1px 띄움
+    right: 1,  // 오른쪽에서 1px 띄움
+    backgroundColor: '#ffffff',
+    zIndex: -1, // 이미지 뒤로 보냄
   },
+
   fullImage: {
+    // 다시 100%로 복구 (확대 X)
     width: "100%",
     height: "100%",
   },
+  
+  overlayImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    zIndex: 99, 
+  },
+  
   text: {
     fontSize: 20,
     fontWeight: "bold"
   },
-  selectedCard: {
-    borderColor: "#ffcc33",
-    borderWidth: 2
-  }
 });

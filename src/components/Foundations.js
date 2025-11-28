@@ -91,7 +91,6 @@ const styles = StyleSheet.create({
   baseImage: {
     width: "100%",
     height: "100%",
-    borderRadius: 6,
     opacity: 0.5, // 빈 칸은 약간 흐리게
   },
 });
