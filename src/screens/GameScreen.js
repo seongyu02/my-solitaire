@@ -1,24 +1,24 @@
 // src/screens/GameScreen.js
-import React, { useState, useEffect, useRef } from "react";
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  Text,
-  Alert,
-  TouchableOpacity,
-  Switch
-} from "react-native";
-import { BlurView } from "expo-blur";
-import { Audio } from "expo-av";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { initGame } from "../game/initGame";
-import Deck from "../components/Deck";
-import Column from "../components/Column";
-import Foundations from "../components/Foundations";
+import { Audio } from "expo-av";
+import { BlurView } from "expo-blur";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  canMoveToTableau,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View
+} from "react-native";
+import Column from "../components/Column";
+import Deck from "../components/Deck";
+import Foundations from "../components/Foundations";
+import { initGame } from "../game/initGame";
+import {
   canMoveToFoundation,
+  canMoveToTableau,
   isGameWon,
   isValidSequence
 } from "../game/rules";
@@ -248,119 +248,192 @@ export default function GameScreen() {
     }
   };
 
-  // -----------------------------
-  // 카드 이동 (테이블로 7열 사이)
-  // -----------------------------
-  const moveSelectionToColumn = (destColumnIndex) => {
-    if (!selected || !game) return;
+// -----------------------------
+// 카드 이동 (테이블로 7열 사이)
+// -----------------------------
+const moveSelectionToColumn = (destColumnIndex) => {
+  if (!selected || !game) {
+    console.log("moveSelectionToColumn: no selected or no game");
+    return;
+  }
 
-    const columns = game.columns.map((col) => [...col]);
-    const foundations = game.foundations.map((pile) => [...pile]);
-    let deck = [...game.deck];
-    let waste = [...game.waste];
+  const columns = game.columns.map((col) => [...col]);
+  const foundations = game.foundations.map((pile) => [...pile]);
+  let deck = [...game.deck];
+  let waste = [...game.waste];
 
-    let movingCards = [];
-    if (selected.pile === "tableau") {
-      const srcCol = columns[selected.columnIndex];
-      movingCards = srcCol.slice(selected.cardIndex);
+  let movingCards = [];
 
-      if (!isValidSequence(movingCards)) {
-        return;
-      }
-    } else if (selected.pile === "waste") {
-      if (selected.index !== waste.length - 1) return;
-      movingCards = [selected.card];
-    } else {
+  // 유연한 인덱스 읽기: cardIndex 또는 index
+  const selCardIndex = selected.cardIndex ?? selected.index ?? null;
+
+  if (selected.pile === "tableau") {
+    if (selCardIndex === null) {
+      console.log("moveSelectionToColumn: selected.cardIndex missing for tableau", selected);
       return;
     }
+    const srcCol = columns[selected.columnIndex];
+    movingCards = srcCol.slice(selCardIndex);
 
-    const destCol = columns[destColumnIndex];
-    if (!canMoveToTableau(movingCards, destCol)) {
+    console.log("moveSelectionToColumn: movingCards from tableau", {
+      from: selected.columnIndex,
+      cardIndex: selCardIndex,
+      movingCards
+    });
+
+    if (!isValidSequence(movingCards)) {
+      console.log("moveSelectionToColumn: invalid sequence", movingCards);
       return;
     }
-
-    if (selected.pile === "tableau") {
-      const srcCol = columns[selected.columnIndex];
-      const remain = srcCol.slice(0, selected.cardIndex);
-      columns[selected.columnIndex] = remain;
-
-      if (remain.length > 0) {
-        const last = remain[remain.length - 1];
-        if (!last.faceUp) {
-          columns[selected.columnIndex][remain.length - 1] = {
-            ...last,
-            faceUp: true
-          };
-        }
-      }
-    } else if (selected.pile === "waste") {
-      waste = waste.slice(0, waste.length - 1);
+  } else if (selected.pile === "waste") {
+    // waste 인덱스도 cardIndex/name 혼용 가능성 처리
+    const wasteIndex = selected.index ?? selected.cardIndex ?? null;
+    if (wasteIndex === null) {
+      console.log("moveSelectionToColumn: selected.index missing for waste", selected);
+      return;
     }
+    if (wasteIndex !== waste.length - 1) {
+      console.log("moveSelectionToColumn: waste selected is not top", { wasteIndex, top: waste.length - 1 });
+      return;
+    }
+    movingCards = [selected.card];
+    console.log("moveSelectionToColumn: movingCards from waste", movingCards);
+  } else {
+    console.log("moveSelectionToColumn: selected.pile is not moveable", selected.pile);
+    return;
+  }
 
-    columns[destColumnIndex] = [...destCol, ...movingCards];
+  const destCol = columns[destColumnIndex];
+  console.log("moveSelectionToColumn: destCol top", destColumnIndex, destCol[destCol.length - 1]);
 
-    const newGame = {
-      ...game,
-      columns,
-      foundations,
-      deck,
-      waste
-    };
-    afterMove(newGame);
+  if (!canMoveToTableau(movingCards, destCol)) {
+    console.log("moveSelectionToColumn: canMoveToTableau returned false", { movingCards, destCol });
+    return;
+  }
+
+  // 실제로 출발 더미에서 떼기
+  if (selected.pile === "tableau") {
+    const srcCol = columns[selected.columnIndex];
+    const remain = srcCol.slice(0, selCardIndex);
+    columns[selected.columnIndex] = remain;
+
+    if (remain.length > 0) {
+      const last = remain[remain.length - 1];
+      if (!last.faceUp) {
+        columns[selected.columnIndex][remain.length - 1] = {
+          ...last,
+          faceUp: true
+        };
+      }
+    }
+  } else if (selected.pile === "waste") {
+    waste = waste.slice(0, waste.length - 1);
+  }
+
+  columns[destColumnIndex] = [...destCol, ...movingCards];
+
+  const newGame = {
+    ...game,
+    columns,
+    foundations,
+    deck,
+    waste
   };
 
+  console.log("moveSelectionToColumn: performing afterMove with newGame", {
+    destColumnIndex,
+    newGameColumnsLen: columns.map(c => c.length)
+  });
+
+  afterMove(newGame);
+};
+
   // -----------------------------
-  // 카드 이동 (파운데이션으로)
-  // -----------------------------
-  const moveSelectionToFoundation = (foundationIndex) => {
-    if (!selected || !game) return;
+// 카드 이동 (파운데이션으로)
+// -----------------------------
+const moveSelectionToFoundation = (foundationIndex) => {
+  if (!selected || !game) {
+    console.log("moveSelectionToFoundation: no selected or no game");
+    return;
+  }
 
-    const columns = game.columns.map((col) => [...col]);
-    const foundations = game.foundations.map((pile) => [...pile]);
-    let deck = [...game.deck];
-    let waste = [...game.waste];
+  const columns = game.columns.map((col) => [...col]);
+  const foundations = game.foundations.map((pile) => [...pile]);
+  let deck = [...game.deck];
+  let waste = [...game.waste];
 
-    let card = null;
+  let card = null;
 
-    if (selected.pile === "tableau") {
-      const srcCol = columns[selected.columnIndex];
-      if (selected.cardIndex !== srcCol.length - 1) return;
-      card = srcCol[selected.cardIndex];
-      if (!card.faceUp) return;
-      if (!canMoveToFoundation(card, foundations[foundationIndex])) return;
+  const selCardIndex = selected.cardIndex ?? selected.index ?? null;
 
-      const remain = srcCol.slice(0, srcCol.length - 1);
-      columns[selected.columnIndex] = remain;
-
-      if (remain.length > 0) {
-        const last = remain[remain.length - 1];
-        if (!last.faceUp) {
-          columns[selected.columnIndex][remain.length - 1] = {
-            ...last,
-            faceUp: true
-          };
-        }
-      }
-    } else if (selected.pile === "waste") {
-      if (selected.index !== waste.length - 1) return;
-      card = selected.card;
-      if (!canMoveToFoundation(card, foundations[foundationIndex])) return;
-      waste = waste.slice(0, waste.length - 1);
-    } else {
+  if (selected.pile === "tableau") {
+    if (selCardIndex === null) {
+      console.log("moveSelectionToFoundation: selected.cardIndex missing for tableau", selected);
+      return;
+    }
+    const srcCol = columns[selected.columnIndex];
+    if (selCardIndex !== srcCol.length - 1) {
+      console.log("moveSelectionToFoundation: selected tableau card is not last", { selCardIndex, lastIdx: srcCol.length - 1 });
+      return;
+    }
+    card = srcCol[selCardIndex];
+    if (!card.faceUp) {
+      console.log("moveSelectionToFoundation: tableau card faceDown", card);
+      return;
+    }
+    if (!canMoveToFoundation(card, foundations[foundationIndex])) {
+      console.log("moveSelectionToFoundation: canMoveToFoundation false", { card, foundation: foundations[foundationIndex] });
       return;
     }
 
-    foundations[foundationIndex] = [...foundations[foundationIndex], card];
+    const remain = srcCol.slice(0, srcCol.length - 1);
+    columns[selected.columnIndex] = remain;
 
-    const newGame = {
-      ...game,
-      columns,
-      foundations,
-      deck,
-      waste
-    };
-    afterMove(newGame);
+    if (remain.length > 0) {
+      const last = remain[remain.length - 1];
+      if (!last.faceUp) {
+        columns[selected.columnIndex][remain.length - 1] = {
+          ...last,
+          faceUp: true
+        };
+      }
+    }
+  } else if (selected.pile === "waste") {
+    const wasteIndex = selected.index ?? selected.cardIndex ?? null;
+    if (wasteIndex === null) {
+      console.log("moveSelectionToFoundation: selected.index missing for waste", selected);
+      return;
+    }
+    if (wasteIndex !== waste.length - 1) {
+      console.log("moveSelectionToFoundation: waste selected is not top", { wasteIndex, top: waste.length - 1 });
+      return;
+    }
+    card = selected.card;
+    if (!canMoveToFoundation(card, foundations[foundationIndex])) {
+      console.log("moveSelectionToFoundation: canMoveToFoundation false for waste card", { card, foundation: foundations[foundationIndex] });
+      return;
+    }
+    waste = waste.slice(0, waste.length - 1);
+  } else {
+    console.log("moveSelectionToFoundation: selected pile not supported", selected.pile);
+    return;
+  }
+
+  foundations[foundationIndex] = [...foundations[foundationIndex], card];
+
+  const newGame = {
+    ...game,
+    columns,
+    foundations,
+    deck,
+    waste
   };
+
+  console.log("moveSelectionToFoundation: performing afterMove", { foundationIndex, card });
+
+  afterMove(newGame);
+};
+
 
   // -----------------------------
   // 카드 탭 / 빈 컬럼 탭 / waste / foundation 처리
@@ -379,6 +452,10 @@ export default function GameScreen() {
       selected.cardIndex === info.cardIndex
     ) {
       setSelected(null);
+      return;
+    }
+
+    if (info.pile !== 'tableau' && !info.isTop.isTop) {
       return;
     }
 

@@ -46,10 +46,11 @@ export default function Column({
                 onPress={() =>
                   onCardPress &&
                   onCardPress({
-                    pile: "tableau",
-                    columnIndex,
-                    cardIndex: index,
-                    card
+                      pile: "tableau",
+                      columnIndex,
+                      cardIndex: index,
+                      card,
+                      isTop: index === cards.length - 1
                   })
                 }
               />

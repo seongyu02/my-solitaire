@@ -10,7 +10,7 @@ export function isValidSequence(cards) {
 
     if (!a.faceUp || !b.faceUp) return false;
     if (a.color === b.color) return false;     // 색이 같으면 안 됨
-    if (a.num !== b.num + 1) return false;     // 숫자는 1씩 내려가야 함
+    if (a.value !== b.value + 1) return false;     // 숫자는 1씩 내려가야 함
   }
   return true;
 }
@@ -24,7 +24,7 @@ export function canMoveToTableau(sequence, destColumn) {
 
   // 빈 컬럼에는 킹만 올 수 있음
   if (!destColumn || destColumn.length === 0) {
-    return firstCard.num === 13;
+    return firstCard.value === 13;
   }
 
   const target = destColumn[destColumn.length - 1];
@@ -33,7 +33,7 @@ export function canMoveToTableau(sequence, destColumn) {
   return (
     target.faceUp &&
     target.color !== firstCard.color &&
-    target.num === firstCard.num + 1
+    target.value === firstCard.value + 1
   );
 }
 
@@ -43,13 +43,13 @@ export function canMoveToFoundation(card, foundationPile) {
 
   // 비어 있으면 A만 올 수 있음
   if (!foundationPile || foundationPile.length === 0) {
-    return card.num === 1;
+    return card.value === 1;
   }
 
   const top = foundationPile[foundationPile.length - 1];
 
   // 같은 무늬, 숫자는 1씩 증가
-  return top.suit === card.suit && card.num === top.num + 1;
+  return top.suit === card.suit && card.value === top.value + 1;
 }
 
 // 승리 체크: 4개의 파운데이션에 13장씩 쌓이면 승리
