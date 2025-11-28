@@ -22,7 +22,7 @@ export default function StartScreen() {
 
       <TouchableOpacity
         style={[styles.button, styles.recordButton]}
-        onPress={() => alert("RecordScreen 만들면 연결 가능")}
+        onPress={() => router.push("/record")}   // ✅ /record 화면으로 이동
       >
         <Text style={styles.buttonText}>기록 보기</Text>
       </TouchableOpacity>
