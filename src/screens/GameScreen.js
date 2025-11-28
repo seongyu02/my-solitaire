@@ -297,10 +297,6 @@ export default function GameScreen() {
   // -----------------------------
   // 카드 이동 관련 (테이블/파운데이션)
   // -----------------------------
-  // (⚠️ 너가 올린 코드 그대로 유지 – 수정 없음)
-  // 너무 길어서 생략하지 않고 그대로 포함함
-  // -----------------------------
-
   const moveSelectionToColumn = (destColumnIndex) => {
     if (!selected || !game) return;
 
@@ -407,7 +403,7 @@ export default function GameScreen() {
   };
 
   // -----------------------------
-  // 카드 탭 핸들러 (그대로 유지)
+  // 카드 탭 핸들러
   // -----------------------------
   const handleCardPress = (info) => {
     if (!game) return;
@@ -608,6 +604,17 @@ export default function GameScreen() {
                   >
                     <Text style={styles.endGameButtonText}>게임 종료</Text>
                   </TouchableOpacity>
+
+                  {/* ✅ 나가기 버튼 추가 */}
+                  <TouchableOpacity
+                    style={styles.exitButton}
+                    onPress={() => {
+                      setModalType(null);  // 설정창 닫고
+                      router.replace("/"); // 시작 화면으로 이동
+                    }}
+                  >
+                    <Text style={styles.exitButtonText}>나가기</Text>
+                  </TouchableOpacity>
                 </>
               ) : (
                 <>
@@ -637,7 +644,7 @@ export default function GameScreen() {
 }
 
 // -----------------------------
-// 스타일 (변경 없음)
+// 스타일
 // -----------------------------
 const styles = StyleSheet.create({
   root: {
@@ -799,5 +806,18 @@ const styles = StyleSheet.create({
   endGameButtonText: {
     color: "#fff",
     fontWeight: "bold"
+  },
+  // ✅ 나가기 버튼 스타일 추가
+  exitButton: {
+    marginTop: 10,
+    paddingVertical: 9,
+    backgroundColor: "#444",
+    borderRadius: 8,
+    alignItems: "center"
+  },
+  exitButtonText: {
+    color: "#ffffff",
+    fontWeight: "600",
+    fontSize: 14
   }
 });
