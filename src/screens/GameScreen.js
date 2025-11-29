@@ -191,7 +191,7 @@ export default function GameScreen() {
   };
 
   // -----------------------------
-  // 게임 리셋
+  // 게임 리셋 (완전 리셋 - 설정에서 "게임 종료"용)
   // -----------------------------
   const resetGame = async () => {
     await playSfx();
@@ -205,6 +205,28 @@ export default function GameScreen() {
     await AsyncStorage.setItem("solitaire_game", JSON.stringify(newGame));
   };
 
+  // ⭐-----------------------------
+  // ⭐ 다시 섞기 (시간/이동 유지 + 점수만 0으로, 덱 재생성)
+  // ⭐-----------------------------
+  const reshuffleGame = async () => {
+    if (!game) return;
+    await playSfx();
+
+    let newGame = initGame();
+    newGame = ensureFoundations(newGame);
+
+    // 이동 수는 기존 값 유지
+    const prevMoves = typeof game.moves === "number" ? game.moves : 0;
+    newGame.moves = prevMoves;
+
+    // 선택 해제, 시간 유지, 점수만 0으로
+    setSelected(null);
+    setScore(0);
+    setGame(newGame);
+
+    await AsyncStorage.setItem("solitaire_game", JSON.stringify(newGame));
+  };
+
   // -----------------------------
   // 덱에서 카드 뽑기
   // -----------------------------
@@ -213,7 +235,6 @@ export default function GameScreen() {
     setGame((prev) => {
       if (!prev) return prev;
 
-      // Waste → Deck 재활용: -20점
       if (prev.deck.length === 0) {
         const newDeck = prev.waste.map((card) => ({
           ...card,
@@ -260,13 +281,11 @@ export default function GameScreen() {
       setScore((prev) => prev + deltaScore);
     }
 
-    // 게임 클리어 체크
     if (isGameWon(updated.foundations)) {
       const finalTime = formatTime(seconds);
       const finalMoves = updated.moves;
       const finalScore = score + deltaScore;
 
-      // 기록 저장
       try {
         const saved = await AsyncStorage.getItem("solitaire_records");
         let list = saved ? JSON.parse(saved) : [];
@@ -322,27 +341,23 @@ export default function GameScreen() {
 
       if (!isValidSequence(movingCards)) return;
 
-      // T→T: +5
       deltaScore += 5;
     } else if (selected.pile === "waste") {
       const wasteIndex = selected.index ?? selected.cardIndex ?? null;
       if (wasteIndex !== waste.length - 1) return;
       movingCards = [selected.card];
 
-      // W→T: +5
       deltaScore += 5;
     }
 
     const destCol = columns[destColumnIndex];
     if (!canMoveToTableau(movingCards, destCol)) return;
 
-    // 원래 위치에서 제거
     if (selected.pile === "tableau") {
       const srcCol = columns[selected.columnIndex];
       const remain = srcCol.slice(0, selCardIndex);
       columns[selected.columnIndex] = remain;
 
-      // 뒷면 뒤집기: +5
       if (remain.length > 0 && !remain[remain.length - 1].faceUp) {
         columns[selected.columnIndex][remain.length - 1] = {
           ...remain[remain.length - 1],
@@ -354,7 +369,6 @@ export default function GameScreen() {
       waste = waste.slice(0, waste.length - 1);
     }
 
-    // 대상 칼럼에 추가
     columns[destColumnIndex] = [...destCol, ...movingCards];
 
     const newGame = {
@@ -395,10 +409,8 @@ export default function GameScreen() {
       const remain = srcCol.slice(0, srcCol.length - 1);
       columns[selected.columnIndex] = remain;
 
-      // Foundation: +10
       deltaScore += 10;
 
-      // 뒷면: +5
       if (remain.length > 0 && !remain[remain.length - 1].faceUp) {
         columns[selected.columnIndex][remain.length - 1] = {
           ...remain[remain.length - 1],
@@ -417,7 +429,6 @@ export default function GameScreen() {
 
       waste = waste.slice(0, waste.length - 1);
 
-      // Foundation: +10
       deltaScore += 10;
     }
 
@@ -507,16 +518,14 @@ export default function GameScreen() {
   // -----------------------------
   return (
     <View style={styles.root}>
-      {/* 상단바 */}
+      {/* ⭐ 상단바: 왼쪽(시간/이동 세로), 오른쪽(점수) */}
       <View style={styles.statusBar}>
-        {/* 시간 */}
-        <Text style={styles.statusText}>{formatTime(seconds)}</Text>
+        <View style={styles.statusLeft}>
+          <Text style={styles.statusTime}>{formatTime(seconds)}</Text>
+          <Text style={styles.statusMoves}>이동: {moves}</Text>
+        </View>
 
-        {/* ⭐ 점수를 오른쪽으로 이동 */}
         <Text style={styles.statusScore}>점수: {score}</Text>
-
-        {/* 이동 */}
-        <Text style={styles.statusText}>이동: {moves}</Text>
       </View>
 
       <ScrollView
@@ -566,8 +575,9 @@ export default function GameScreen() {
           <Text style={styles.bottomLabel}>설정</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.randomButton} onPress={resetGame}>
-          <Text style={styles.randomButtonText}>랜덤 게임</Text>
+        {/* ⭐ 버튼 텍스트 & 동작 변경: 랜덤 게임 → 다시 섞기 + reshuffleGame */}
+        <TouchableOpacity style={styles.randomButton} onPress={reshuffleGame}>
+          <Text style={styles.randomButtonText}>다시 섞기</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -633,6 +643,7 @@ export default function GameScreen() {
                     <Text style={styles.endGameButtonText}>게임 종료</Text>
                   </TouchableOpacity>
 
+                  {/* ⭐ 나가기 버튼 */}
                   <TouchableOpacity
                     style={styles.exitButton}
                     onPress={() => {
@@ -696,9 +707,9 @@ const styles = StyleSheet.create({
     color: "#fff"
   },
 
-  // ⭐ 상단 상태바
+  // ⭐ 상단 상태바 (왼쪽: 시간/이동 세로, 오른쪽: 점수)
   statusBar: {
-    height: 32,
+    height: 50,
     backgroundColor: "#001820",
     flexDirection: "row",
     alignItems: "center",
@@ -708,23 +719,34 @@ const styles = StyleSheet.create({
     borderBottomColor: "#00352a"
   },
 
-  statusText: {
-    color: "#ffe89b",
-    fontSize: 11
+  // 왼쪽 묶음(시간 + 이동)
+  statusLeft: {
+    flexDirection: "column",
+    alignItems: "flex-start",
+    marginLeft: 30
   },
 
-  // ⭐ 점수 위치를 오른쪽으로 이동
+  statusTime: {
+    color: "#ffe89b",
+    fontSize: 14,
+    fontWeight: "bold",
+    marginBottom: 2
+  },
+
+  statusMoves: {
+    color: "#ffe89b",
+    fontWeight: "bold",
+    fontSize: 13
+  },
+
+  // 오른쪽 (점수)
   statusScore: {
     color: "#ffe89b",
-    fontSize: 12,
-    fontWeight: "bold",
-    marginLeft: 120   // ← 갤럭시 핸드폰 전면 카메라 때문에 오른쪽으로 이동
-  },
-
-  statusCenter: {
-    color: "#ffe89b",
     fontSize: 13,
-    fontWeight: "bold"
+    fontWeight: "700",
+    textAlign: "right",
+    minWidth: 80,
+    marginRight: 35
   },
 
   container: {
