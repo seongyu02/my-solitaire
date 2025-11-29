@@ -1,6 +1,6 @@
 // src/screens/RecordScreen.js
 import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert } from "react-native";
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
@@ -20,20 +20,6 @@ export default function RecordScreen() {
     } catch (e) {
       console.log("기록 불러오기 오류:", e);
     }
-  };
-
-  const resetRecords = async () => {
-    Alert.alert("기록 초기화", "모든 기록을 삭제할까요?", [
-      { text: "취소", style: "cancel" },
-      {
-        text: "확인",
-        style: "destructive",
-        onPress: async () => {
-          await AsyncStorage.removeItem("solitaire_records");
-          setRecords([]);
-        }
-      }
-    ]);
   };
 
   return (
@@ -67,11 +53,6 @@ export default function RecordScreen() {
           );
         })}
       </ScrollView>
-
-      {/* 리셋 버튼 */}
-      <TouchableOpacity style={styles.resetButton} onPress={resetRecords}>
-        <Text style={styles.resetText}>리셋</Text>
-      </TouchableOpacity>
     </LinearGradient>
   );
 }
@@ -133,9 +114,9 @@ const styles = StyleSheet.create({
   },
 
   // 🥇🥈🥉 메달 색 적용
-  rankColor1: { backgroundColor: "#FFD700" },  // 금색
-  rankColor2: { backgroundColor: "#C0C0C0" },  // 은색
-  rankColor3: { backgroundColor: "#CD7F32" },  // 동색
+  rankColor1: { backgroundColor: "#FFD700" },
+  rankColor2: { backgroundColor: "#C0C0C0" },
+  rankColor3: { backgroundColor: "#CD7F32" },
 
   // 나머지 색
   rankColor4: { backgroundColor: "#555555" },
@@ -157,20 +138,5 @@ const styles = StyleSheet.create({
     color: "#cfcfcf",
     fontSize: 12,
     marginTop: 3,
-  },
-
-  resetButton: {
-    width: 130,
-    paddingVertical: 12,
-    borderRadius: 20,
-    backgroundColor: "#d63031",
-    alignItems: "center",
-    marginBottom: 35,
-  },
-
-  resetText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
   },
 });
