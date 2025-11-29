@@ -24,12 +24,16 @@ export default function RecordScreen() {
 
   return (
     <LinearGradient colors={["#004820", "#00733a"]} style={styles.root}>
+
       {/* 상단 헤더 */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.backButton}>⬅</Text>
         </TouchableOpacity>
+
         <Text style={styles.title}>최고 점수 기록</Text>
+
+        {/* 공간 맞추기용 */}
         <View style={{ width: 24 }} />
       </View>
 
@@ -39,15 +43,21 @@ export default function RecordScreen() {
           const item = records[index];
           return (
             <View key={rank} style={styles.recordRow}>
-              {/* 순위 원 */}
+
+              {/* 순위 */}
               <View style={[styles.rankCircle, styles[`rankColor${rank}`]]}>
                 <Text style={styles.rankText}>{rank}</Text>
               </View>
 
               {/* 점수 + 날짜 */}
               <View style={styles.recordContent}>
-                <Text style={styles.scoreText}>{item ? item.score : "---"}</Text>
-                <Text style={styles.dateText}>{item ? item.date : "---"}</Text>
+                <Text style={styles.scoreText}>
+                  {item ? item.score : "---"}
+                </Text>
+
+                <Text style={styles.dateText}>
+                  {item ? item.date : "---"}
+                </Text>
               </View>
             </View>
           );
@@ -113,16 +123,16 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 
-  // 🥇🥈🥉 메달 색 적용
+  // 🥇🥈🥉 메달 색
   rankColor1: { backgroundColor: "#FFD700" },
   rankColor2: { backgroundColor: "#C0C0C0" },
   rankColor3: { backgroundColor: "#CD7F32" },
 
-  // 나머지 색
-  rankColor4: { backgroundColor: "#555555" },
-  rankColor5: { backgroundColor: "#555555" },
-  rankColor6: { backgroundColor: "#555555" },
-  rankColor7: { backgroundColor: "#555555" },
+  // 나머지
+  rankColor4: { backgroundColor: "#555" },
+  rankColor5: { backgroundColor: "#555" },
+  rankColor6: { backgroundColor: "#555" },
+  rankColor7: { backgroundColor: "#555" },
 
   recordContent: {
     flex: 1,
@@ -131,12 +141,12 @@ const styles = StyleSheet.create({
   scoreText: {
     color: "#ffffff",
     fontSize: 18,
-    fontWeight: "600",
+    fontWeight: "700",
   },
 
   dateText: {
-    color: "#cfcfcf",
-    fontSize: 12,
-    marginTop: 3,
+    color: "#dcdcdc",
+    fontSize: 13,
+    marginTop: 5,
   },
 });
