@@ -2,9 +2,12 @@
 import React from "react";
 import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 
-export default function EndScreen({ time, moves }) {
+export default function EndScreen() {
+  // ⭐ expo-router에서 넘어온 값 받기
+  const { time, moves, score } = useLocalSearchParams();
+
   return (
     <LinearGradient colors={["#004820", "#00733a"]} style={styles.root}>
       <View style={styles.container}>
@@ -14,16 +17,19 @@ export default function EndScreen({ time, moves }) {
         {/* 기록 박스 */}
         <View style={styles.recordBox}>
           <Text style={styles.label}>시간</Text>
-          <Text style={styles.value}>{time}</Text>
+          <Text style={styles.value}>{String(time)}</Text>
 
           <Text style={[styles.label, { marginTop: 16 }]}>이동</Text>
-          <Text style={styles.value}>{moves}</Text>
+          <Text style={styles.value}>{String(moves)}</Text>
+
+          <Text style={[styles.label, { marginTop: 16 }]}>점수</Text>
+          <Text style={styles.value}>{String(score)}</Text>
         </View>
 
         {/* 버튼 2개 */}
         <TouchableOpacity
           style={styles.button}
-          onPress={() => router.replace("/game")} // 새 게임 시작
+          onPress={() => router.replace("/game")}
         >
           <Text style={styles.buttonText}>다시 하기</Text>
         </TouchableOpacity>

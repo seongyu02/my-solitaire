@@ -30,21 +30,21 @@ export default function GameScreen() {
   const [game, setGame] = useState(null);
   const [loaded, setLoaded] = useState(false);
   const [selected, setSelected] = useState(null);
-  const [modalType, setModalType] = useState(null); // null | "settings" | "rules"
+  const [modalType, setModalType] = useState(null);
 
-  // 🔊 설정: 배경음악 / 효과음
   const [bgmEnabled, setBgmEnabled] = useState(true);
   const [sfxEnabled, setSfxEnabled] = useState(true);
 
-  // 🔊 사운드 객체 ref
   const bgmSoundRef = useRef(null);
   const sfxSoundRef = useRef(null);
 
-  // -----------------------------
-  // ⏱ 0) 타이머(시간 기록)
-  // -----------------------------
+  // 시간
   const [seconds, setSeconds] = useState(0);
 
+  // 점수
+  const [score, setScore] = useState(0);
+
+  // 타이머
   useEffect(() => {
     const interval = setInterval(() => {
       setSeconds((prev) => prev + 1);
@@ -59,7 +59,7 @@ export default function GameScreen() {
   };
 
   // -----------------------------
-  // 1) 게임 상태 불러오기
+  // 게임 불러오기
   // -----------------------------
   useEffect(() => {
     const loadGame = async () => {
@@ -79,7 +79,6 @@ export default function GameScreen() {
           setGame(fresh);
         }
       } catch (e) {
-        console.log("불러오기 에러:", e);
         let fresh = initGame();
         fresh = ensureFoundations(fresh);
         fresh.moves = 0;
@@ -92,23 +91,18 @@ export default function GameScreen() {
   }, []);
 
   // -----------------------------
-  // 2) 게임 상태 저장
+  // 게임 저장
   // -----------------------------
   useEffect(() => {
     const saveGame = async () => {
       if (!game) return;
-      try {
-        await AsyncStorage.setItem("solitaire_game", JSON.stringify(game));
-      } catch (e) {
-        console.log("저장 에러:", e);
-      }
+      await AsyncStorage.setItem("solitaire_game", JSON.stringify(game));
     };
-
     saveGame();
   }, [game]);
 
   // -----------------------------
-  // 3) 설정 불러오기
+  // 설정 불러오기
   // -----------------------------
   useEffect(() => {
     const loadSettings = async () => {
@@ -121,47 +115,35 @@ export default function GameScreen() {
           if (typeof parsed.sfxEnabled === "boolean")
             setSfxEnabled(parsed.sfxEnabled);
         }
-      } catch (e) {
-        console.log("설정 불러오기 에러:", e);
-      }
+      } catch (e) {}
     };
     loadSettings();
   }, []);
 
   // -----------------------------
-  // 4) 설정 저장
+  // 설정 저장
   // -----------------------------
   useEffect(() => {
     const saveSettings = async () => {
-      try {
-        await AsyncStorage.setItem(
-          "solitaire_settings",
-          JSON.stringify({ bgmEnabled, sfxEnabled })
-        );
-      } catch (e) {
-        console.log("설정 저장 에러:", e);
-      }
+      await AsyncStorage.setItem(
+        "solitaire_settings",
+        JSON.stringify({ bgmEnabled, sfxEnabled })
+      );
     };
     saveSettings();
   }, [bgmEnabled, sfxEnabled]);
 
   // -----------------------------
-  // 5) 배경음악 처리
+  // BGM 처리
   // -----------------------------
   useEffect(() => {
     const handleBgm = async () => {
       try {
         if (bgmEnabled) {
-          if (bgmSoundRef.current) {
-            const status = await bgmSoundRef.current.getStatusAsync();
-            if (status.isLoaded && status.isPlaying) return;
-          } else {
+          if (!bgmSoundRef.current) {
             const { sound } = await Audio.Sound.createAsync(
               require("../../assets/bgm.mp3"),
-              {
-                isLooping: true,
-                volume: 0.5
-              }
+              { isLooping: true, volume: 0.5 }
             );
             bgmSoundRef.current = sound;
           }
@@ -171,9 +153,7 @@ export default function GameScreen() {
             await bgmSoundRef.current.stopAsync();
           }
         }
-      } catch (e) {
-        console.log("BGM 에러:", e);
-      }
+      } catch (e) {}
     };
 
     handleBgm();
@@ -187,7 +167,7 @@ export default function GameScreen() {
   }, [bgmEnabled]);
 
   // -----------------------------
-  // 6) 효과음 재생
+  // 효과음
   // -----------------------------
   const playSfx = async () => {
     if (!sfxEnabled) return;
@@ -200,9 +180,7 @@ export default function GameScreen() {
         sfxSoundRef.current = sound;
       }
       await sfxSoundRef.current.replayAsync();
-    } catch (e) {
-      console.log("SFX 에러:", e);
-    }
+    } catch (e) {}
   };
 
   const ensureFoundations = (g) => {
@@ -222,28 +200,34 @@ export default function GameScreen() {
     newGame.moves = 0;
     setSelected(null);
     setSeconds(0);
+    setScore(0);
     setGame(newGame);
     await AsyncStorage.setItem("solitaire_game", JSON.stringify(newGame));
   };
 
   // -----------------------------
-  // 덱에서 카드 한 장 뽑기
+  // 덱에서 카드 뽑기
   // -----------------------------
   const flipDeck = () => {
     setSelected(null);
     setGame((prev) => {
       if (!prev) return prev;
 
+      // Waste → Deck 재활용: -20점
       if (prev.deck.length === 0) {
         const newDeck = prev.waste.map((card) => ({
           ...card,
-          faceUp: false,
+          faceUp: false
         }));
+
+        if (prev.waste.length > 0) {
+          setScore((prevScore) => prevScore - 20);
+        }
 
         return {
           ...prev,
           deck: newDeck,
-          waste: [],
+          waste: []
         };
       }
 
@@ -251,42 +235,64 @@ export default function GameScreen() {
       const newWaste = [...prev.waste, top];
       const newDeck = prev.deck.slice(1);
 
-      const updated = ensureFoundations({
-        ...prev,
-        deck: newDeck,
-        waste: newWaste,
-      });
-
       playSfx();
-      return updated;
+      return { ...prev, deck: newDeck, waste: newWaste };
     });
   };
 
   // -----------------------------
-  // ★ 이동 후 처리 + 클리어 체크 추가
+  // 이동 후 처리 (점수 포함)
   // -----------------------------
-  const afterMove = (updatedGameBase) => {
+  const afterMove = async (updatedGameBase, deltaScore = 0) => {
     const moves = (game?.moves || 0) + 1;
-    const updated = ensureFoundations({
+
+    const updated = {
       ...updatedGameBase,
       moves
-    });
+    };
 
     setGame(updated);
     setSelected(null);
 
-    playSfx();
+    await playSfx();
 
-    // ★ 게임 클리어 → EndScreen 이동
+    if (deltaScore !== 0) {
+      setScore((prev) => prev + deltaScore);
+    }
+
+    // 게임 클리어 체크
     if (isGameWon(updated.foundations)) {
       const finalTime = formatTime(seconds);
       const finalMoves = updated.moves;
+      const finalScore = score + deltaScore;
+
+      // 기록 저장
+      try {
+        const saved = await AsyncStorage.getItem("solitaire_records");
+        let list = saved ? JSON.parse(saved) : [];
+
+        list.push({
+          score: finalScore,
+          time: finalTime,
+          moves: finalMoves,
+          date: new Date().toLocaleString()
+        });
+
+        list.sort((a, b) => b.score - a.score);
+        list = list.slice(0, 7);
+
+        await AsyncStorage.setItem(
+          "solitaire_records",
+          JSON.stringify(list)
+        );
+      } catch (e) {}
 
       router.push({
         pathname: "/end",
         params: {
           time: finalTime,
-          moves: finalMoves
+          moves: String(finalMoves),
+          score: String(finalScore)
         }
       });
 
@@ -295,7 +301,7 @@ export default function GameScreen() {
   };
 
   // -----------------------------
-  // 카드 이동 관련 (테이블/파운데이션)
+  // 카드 이동 (Column)
   // -----------------------------
   const moveSelectionToColumn = (destColumnIndex) => {
     if (!selected || !game) return;
@@ -307,6 +313,7 @@ export default function GameScreen() {
 
     let movingCards = [];
     const selCardIndex = selected.cardIndex ?? selected.index ?? null;
+    let deltaScore = 0;
 
     if (selected.pile === "tableau") {
       if (selCardIndex === null) return;
@@ -314,30 +321,40 @@ export default function GameScreen() {
       movingCards = srcCol.slice(selCardIndex);
 
       if (!isValidSequence(movingCards)) return;
+
+      // T→T: +5
+      deltaScore += 5;
     } else if (selected.pile === "waste") {
       const wasteIndex = selected.index ?? selected.cardIndex ?? null;
       if (wasteIndex !== waste.length - 1) return;
       movingCards = [selected.card];
-    } else return;
+
+      // W→T: +5
+      deltaScore += 5;
+    }
 
     const destCol = columns[destColumnIndex];
     if (!canMoveToTableau(movingCards, destCol)) return;
 
+    // 원래 위치에서 제거
     if (selected.pile === "tableau") {
       const srcCol = columns[selected.columnIndex];
       const remain = srcCol.slice(0, selCardIndex);
       columns[selected.columnIndex] = remain;
 
+      // 뒷면 뒤집기: +5
       if (remain.length > 0 && !remain[remain.length - 1].faceUp) {
         columns[selected.columnIndex][remain.length - 1] = {
           ...remain[remain.length - 1],
           faceUp: true
         };
+        deltaScore += 5;
       }
     } else {
       waste = waste.slice(0, waste.length - 1);
     }
 
+    // 대상 칼럼에 추가
     columns[destColumnIndex] = [...destCol, ...movingCards];
 
     const newGame = {
@@ -348,9 +365,12 @@ export default function GameScreen() {
       waste
     };
 
-    afterMove(newGame);
+    afterMove(newGame, deltaScore);
   };
 
+  // -----------------------------
+  // 카드 이동 (Foundation)
+  // -----------------------------
   const moveSelectionToFoundation = (foundationIndex) => {
     if (!selected || !game) return;
 
@@ -360,6 +380,7 @@ export default function GameScreen() {
     let waste = [...game.waste];
 
     let card = null;
+    let deltaScore = 0;
     const selCardIndex = selected.cardIndex ?? selected.index ?? null;
 
     if (selected.pile === "tableau") {
@@ -368,28 +389,42 @@ export default function GameScreen() {
 
       card = srcCol[selCardIndex];
       if (!card.faceUp) return;
-      if (!canMoveToFoundation(card, foundations[foundationIndex])) return;
+      if (!canMoveToFoundation(card, foundations[foundationIndex]))
+        return;
 
       const remain = srcCol.slice(0, srcCol.length - 1);
       columns[selected.columnIndex] = remain;
 
+      // Foundation: +10
+      deltaScore += 10;
+
+      // 뒷면: +5
       if (remain.length > 0 && !remain[remain.length - 1].faceUp) {
         columns[selected.columnIndex][remain.length - 1] = {
           ...remain[remain.length - 1],
           faceUp: true
         };
+        deltaScore += 5;
       }
     } else if (selected.pile === "waste") {
       const wasteIndex = selected.index ?? selected.cardIndex ?? null;
       if (wasteIndex !== waste.length - 1) return;
 
       card = selected.card;
-      if (!canMoveToFoundation(card, foundations[foundationIndex])) return;
+
+      if (!canMoveToFoundation(card, foundations[foundationIndex]))
+        return;
 
       waste = waste.slice(0, waste.length - 1);
-    } else return;
 
-    foundations[foundationIndex] = [...foundations[foundationIndex], card];
+      // Foundation: +10
+      deltaScore += 10;
+    }
+
+    foundations[foundationIndex] = [
+      ...foundations[foundationIndex],
+      card
+    ];
 
     const newGame = {
       ...game,
@@ -399,11 +434,11 @@ export default function GameScreen() {
       waste
     };
 
-    afterMove(newGame);
+    afterMove(newGame, deltaScore);
   };
 
   // -----------------------------
-  // 카드 탭 핸들러
+  // 카드 탭
   // -----------------------------
   const handleCardPress = (info) => {
     if (!game) return;
@@ -470,13 +505,17 @@ export default function GameScreen() {
   // -----------------------------
   // 렌더링
   // -----------------------------
-
   return (
     <View style={styles.root}>
-      {/* 상단 상태 바 */}
+      {/* 상단바 */}
       <View style={styles.statusBar}>
+        {/* 시간 */}
         <Text style={styles.statusText}>{formatTime(seconds)}</Text>
-        <Text style={styles.statusCenter}>{moves}</Text>
+
+        {/* ⭐ 점수를 오른쪽으로 이동 */}
+        <Text style={styles.statusScore}>점수: {score}</Text>
+
+        {/* 이동 */}
         <Text style={styles.statusText}>이동: {moves}</Text>
       </View>
 
@@ -484,7 +523,6 @@ export default function GameScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        {/* 위쪽: 파운데이션 / 덱 */}
         <View style={styles.topRow}>
           <View style={styles.foundationsWrapper}>
             <Foundations
@@ -505,7 +543,6 @@ export default function GameScreen() {
           </View>
         </View>
 
-        {/* 7개 컬럼 */}
         <View style={styles.columns}>
           {game.columns.map((col, index) => (
             <Column
@@ -544,11 +581,7 @@ export default function GameScreen() {
       {/* 모달 */}
       {modalType && (
         <View style={styles.modalOverlay}>
-          <BlurView
-            intensity={40}
-            tint="dark"
-            style={StyleSheet.absoluteFill}
-          />
+          <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
 
           <View style={styles.modalContent}>
             <TouchableOpacity
@@ -567,17 +600,12 @@ export default function GameScreen() {
                 <>
                   <View style={styles.settingRow}>
                     <Text style={styles.modalTextLabel}>배경 음악</Text>
-                    <Switch
-                      value={bgmEnabled}
-                      onValueChange={setBgmEnabled}
-                    />
+                    <Switch value={bgmEnabled} onValueChange={setBgmEnabled} />
                   </View>
+
                   <View style={styles.settingRow}>
                     <Text style={styles.modalTextLabel}>효과음</Text>
-                    <Switch
-                      value={sfxEnabled}
-                      onValueChange={setSfxEnabled}
-                    />
+                    <Switch value={sfxEnabled} onValueChange={setSfxEnabled} />
                   </View>
 
                   <View style={styles.settingDivider} />
@@ -605,12 +633,11 @@ export default function GameScreen() {
                     <Text style={styles.endGameButtonText}>게임 종료</Text>
                   </TouchableOpacity>
 
-                  {/* ✅ 나가기 버튼 추가 */}
                   <TouchableOpacity
                     style={styles.exitButton}
                     onPress={() => {
-                      setModalType(null);  // 설정창 닫고
-                      router.replace("/"); // 시작 화면으로 이동
+                      setModalType(null);
+                      router.replace("/");
                     }}
                   >
                     <Text style={styles.exitButtonText}>나가기</Text>
@@ -651,63 +678,83 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#006b35"
   },
+
   loadingRoot: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#006b35"
   },
+
   loadingBox: {
     padding: 16,
     borderRadius: 8,
     backgroundColor: "rgba(0,0,0,0.5)"
   },
+
   loadingText: {
     color: "#fff"
   },
+
+  // ⭐ 상단 상태바
   statusBar: {
     height: 32,
     backgroundColor: "#001820",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#00352a"
   },
+
   statusText: {
     color: "#ffe89b",
     fontSize: 11
   },
+
+  // ⭐ 점수 위치를 오른쪽으로 이동
+  statusScore: {
+    color: "#ffe89b",
+    fontSize: 12,
+    fontWeight: "bold",
+    marginLeft: 120   // ← 갤럭시 핸드폰 전면 카메라 때문에 오른쪽으로 이동
+  },
+
   statusCenter: {
     color: "#ffe89b",
     fontSize: 13,
     fontWeight: "bold"
   },
+
   container: {
     flexGrow: 1,
     paddingHorizontal: 8,
     paddingTop: 10,
     paddingBottom: 4
   },
+
   topRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     marginBottom: 12
   },
+
   foundationsWrapper: {
     flex: 1
   },
+
   deckWrapper: {
     justifyContent: "flex-start",
     alignItems: "flex-end"
   },
+
   columns: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginTop: 4
+    alignItems: "flex-start"
   },
+
   bottomBar: {
     height: 80,
     backgroundColor: "#001017",
@@ -716,26 +763,31 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16
   },
+
   bottomSide: {
     width: 70,
     justifyContent: "center",
     alignItems: "center"
   },
+
   bottomLabel: {
     color: "#ccc",
     fontSize: 11
   },
+
   randomButton: {
     paddingHorizontal: 22,
     paddingVertical: 6,
     backgroundColor: "#00783a",
     borderRadius: 16
   },
+
   randomButtonText: {
     color: "#fff",
     fontWeight: "bold",
     fontSize: 13
   },
+
   modalOverlay: {
     position: "absolute",
     top: 0,
@@ -745,6 +797,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center"
   },
+
   modalContent: {
     width: "80%",
     maxHeight: "70%",
@@ -754,6 +807,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16
   },
+
   modalClose: {
     position: "absolute",
     top: 8,
@@ -761,11 +815,13 @@ const styles = StyleSheet.create({
     padding: 8,
     zIndex: 1
   },
+
   modalCloseText: {
     color: "#ffffff",
     fontSize: 18,
     fontWeight: "bold"
   },
+
   modalTitle: {
     color: "#ffffff",
     fontSize: 18,
@@ -773,41 +829,48 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 8
   },
+
   modalBody: {
     marginTop: 8
   },
+
   modalText: {
     color: "#f0f0f0",
     fontSize: 13,
     lineHeight: 20,
     marginBottom: 6
   },
+
   modalTextLabel: {
     color: "#f0f0f0",
     fontSize: 14
   },
+
   settingRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 10
   },
+
   settingDivider: {
     height: 1,
     backgroundColor: "#444",
     marginVertical: 12
   },
+
   endGameButton: {
     paddingVertical: 10,
     backgroundColor: "#aa3333",
     borderRadius: 8,
     alignItems: "center"
   },
+
   endGameButtonText: {
     color: "#fff",
     fontWeight: "bold"
   },
-  // ✅ 나가기 버튼 스타일 추가
+
   exitButton: {
     marginTop: 10,
     paddingVertical: 9,
@@ -815,6 +878,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center"
   },
+
   exitButtonText: {
     color: "#ffffff",
     fontWeight: "600",
