@@ -5,10 +5,10 @@ import { Image, StyleSheet, TouchableOpacity, View } from "react-native";
 import Card from "./Card";
 
 // 2. 빈 슬롯 이미지 (c0, d0, h0, s0) 불러오기
-import c0 from "../assets/images/c/c0.png";
-import d0 from "../assets/images/d/d0.png";
-import h0 from "../assets/images/h/h0.png";
-import s0 from "../assets/images/s/s0.png";
+import c0 from "../assets/images/base/c/c0.png";
+import d0 from "../assets/images/base/d/d0.png";
+import h0 from "../assets/images/base/h/h0.png";
+import s0 from "../assets/images/base/s/s0.png";
 
 export default function Foundations({ foundations, onPress, selected }) {
   // 인덱스 순서대로 배경 이미지 지정 (클로버, 다이아, 하트, 스페이드 순)
