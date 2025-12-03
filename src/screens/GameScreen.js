@@ -235,6 +235,7 @@ export default function GameScreen() {
     setGame((prev) => {
       if (!prev) return prev;
 
+      // 덱이 비었으면 waste를 다시 덱으로
       if (prev.deck.length === 0) {
         const newDeck = prev.waste.map((card) => ({
           ...card,
@@ -252,6 +253,7 @@ export default function GameScreen() {
         };
       }
 
+      // 덱에서 카드 한 장 뽑아 waste에 올림
       const top = { ...prev.deck[0], faceUp: true };
       const newWaste = [...prev.waste, top];
       const newDeck = prev.deck.slice(1);
@@ -334,6 +336,7 @@ export default function GameScreen() {
     const selCardIndex = selected.cardIndex ?? selected.index ?? null;
     let deltaScore = 0;
 
+    // 1) 테이블에서 선택된 카드 묶음 이동
     if (selected.pile === "tableau") {
       if (selCardIndex === null) return;
       const srcCol = columns[selected.columnIndex];
@@ -342,22 +345,30 @@ export default function GameScreen() {
       if (!isValidSequence(movingCards)) return;
 
       deltaScore += 5;
-    } else if (selected.pile === "waste") {
+    }
+    // 2) waste에서 선택된 카드 이동
+    else if (selected.pile === "waste") {
       const wasteIndex = selected.index ?? selected.cardIndex ?? null;
       if (wasteIndex !== waste.length - 1) return;
       movingCards = [selected.card];
 
       deltaScore += 5;
     }
+    // foundation 선택은 여기서 처리하지 않음
+    else {
+      return;
+    }
 
     const destCol = columns[destColumnIndex];
     if (!canMoveToTableau(movingCards, destCol)) return;
 
+    // 원래 위치에서 제거
     if (selected.pile === "tableau") {
       const srcCol = columns[selected.columnIndex];
       const remain = srcCol.slice(0, selCardIndex);
       columns[selected.columnIndex] = remain;
 
+      // 뒤집을 카드가 있으면 뒤집기
       if (remain.length > 0 && !remain[remain.length - 1].faceUp) {
         columns[selected.columnIndex][remain.length - 1] = {
           ...remain[remain.length - 1],
@@ -366,9 +377,11 @@ export default function GameScreen() {
         deltaScore += 5;
       }
     } else {
+      // waste
       waste = waste.slice(0, waste.length - 1);
     }
 
+    // 목적지에 카드들 추가
     columns[destColumnIndex] = [...destCol, ...movingCards];
 
     const newGame = {
@@ -430,6 +443,9 @@ export default function GameScreen() {
       waste = waste.slice(0, waste.length - 1);
 
       deltaScore += 10;
+    } else {
+      // foundation에서 foundation으로는 이동 불가
+      return;
     }
 
     foundations[foundationIndex] = [
@@ -449,16 +465,75 @@ export default function GameScreen() {
   };
 
   // -----------------------------
+  // 파운데이션 → 컬럼 (클론다이크 룰)
+  // -----------------------------
+  const moveFoundationToColumn = (destColumnIndex) => {
+    if (!selected || !game) return;
+    if (selected.pile !== "foundation") return;
+
+    const columns = game.columns.map((col) => [...col]);
+    const foundations = game.foundations.map((pile) => [...pile]);
+    let deck = [...game.deck];
+    let waste = [...game.waste];
+
+    const fIndex = selected.foundationIndex;
+    const pile = foundations[fIndex];
+
+    if (!pile || pile.length === 0) return;
+
+    // 항상 top 카드만 이동 가능
+    const topIndex = pile.length - 1;
+    const selIndex = selected.index ?? topIndex;
+    if (selIndex !== topIndex) return;
+
+    const card = pile[topIndex];
+
+    const destCol = columns[destColumnIndex];
+    const movingCards = [card];
+
+    // 기존 룰 함수 재사용
+    if (!canMoveToTableau(movingCards, destCol)) return;
+
+    // foundation에서 제거
+    foundations[fIndex] = pile.slice(0, pile.length - 1);
+
+    // 컬럼에 추가 (이미 faceUp일 것이지만 한 번 더 보장)
+    columns[destColumnIndex] = [
+      ...destCol,
+      { ...card, faceUp: true }
+    ];
+
+    const newGame = {
+      ...game,
+      columns,
+      foundations,
+      deck,
+      waste
+    };
+
+    // 파운데이션에서 내리면 페널티 (원하면 값 조절 가능)
+    afterMove(newGame, -15);
+  };
+
+  // -----------------------------
   // 카드 탭
   // -----------------------------
   const handleCardPress = (info) => {
     if (!game) return;
 
+    // 1) foundation 카드가 선택된 상태에서 컬럼 카드 누르면
+    if (selected && selected.pile === "foundation") {
+      moveFoundationToColumn(info.columnIndex);
+      return;
+    }
+
+    // 2) 아직 아무것도 선택 안 했으면 방금 카드 선택
     if (!selected) {
       setSelected(info);
       return;
     }
 
+    // 3) 같은 카드 다시 누르면 선택 해제
     if (
       selected.pile === info.pile &&
       selected.columnIndex === info.columnIndex &&
@@ -468,14 +543,22 @@ export default function GameScreen() {
       return;
     }
 
+    // 4) tableau 이외의 더미에서는 top 카드만 대상으로
     if (info.pile !== "tableau" && !info.isTop?.isTop) {
       return;
     }
 
+    // 5) 일반적인 이동 (waste/tableau → tableau)
     moveSelectionToColumn(info.columnIndex);
   };
 
   const handleEmptyColumnPress = (columnIndex) => {
+    // foundation 카드 선택된 상태라면 파운데이션 → 빈 컬럼
+    if (selected?.pile === "foundation") {
+      moveFoundationToColumn(columnIndex);
+      return;
+    }
+    // 그 외는 기존 로직
     moveSelectionToColumn(columnIndex);
   };
 
@@ -494,8 +577,37 @@ export default function GameScreen() {
   };
 
   const handleFoundationPress = (info) => {
-    if (!selected) return;
-    moveSelectionToFoundation(info.foundationIndex);
+    if (!game) return;
+    const foundationIndex = info.foundationIndex;
+
+    // 1) 아무것도 선택 안 된 상태에서 파운데이션 누르면 -> 그 파운데이션 top 카드 선택
+    if (!selected) {
+      const pile = game.foundations[foundationIndex];
+      if (!pile || pile.length === 0) return;
+
+      const topIndex = pile.length - 1;
+      const topCard = pile[topIndex];
+
+      setSelected({
+        pile: "foundation",
+        foundationIndex,
+        index: topIndex,
+        card: topCard
+      });
+      return;
+    }
+
+    // 2) 이미 같은 파운데이션이 선택되어 있으면 -> 선택 해제
+    if (
+      selected.pile === "foundation" &&
+      selected.foundationIndex === foundationIndex
+    ) {
+      setSelected(null);
+      return;
+    }
+
+    // 3) 그 외 (tableau/waste 선택 상태에서 파운데이션 누르면) -> 파운데이션으로 올리기
+    moveSelectionToFoundation(foundationIndex);
   };
 
   // -----------------------------
@@ -663,7 +775,8 @@ export default function GameScreen() {
                     • 같은 무늬 A → K 순으로 파운데이션에 쌓습니다.
                   </Text>
                   <Text style={styles.modalText}>
-                    • 아래 7줄은 색을 번갈아가며 숫자가 1씩 작아지는 카드만 올릴 수 있습니다.
+                    • 아래 7줄은 색을 번갈아가며 숫자가 1씩 작아지는 카드만 올릴 수
+                    있습니다.
                   </Text>
                   <Text style={styles.modalText}>
                     • 빈 열에는 K로 시작하는 카드 묶음만 놓을 수 있습니다.
