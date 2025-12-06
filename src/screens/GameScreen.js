@@ -742,30 +742,7 @@ export default function GameScreen() {
 
                   <View style={styles.settingDivider} />
 
-                  <TouchableOpacity
-                    style={styles.endGameButton}
-                    onPress={() => {
-                      Alert.alert(
-                        "게임 종료",
-                        "현재 게임을 종료하고 새 게임을 시작할까요?",
-                        [
-                          { text: "취소", style: "cancel" },
-                          {
-                            text: "확인",
-                            style: "destructive",
-                            onPress: async () => {
-                              await resetGame();
-                              setModalType(null);
-                            }
-                          }
-                        ]
-                      );
-                    }}
-                  >
-                    <Text style={styles.endGameButtonText}>게임 종료</Text>
-                  </TouchableOpacity>
-
-                  {/* ⭐ 나가기 버튼 */}
+                  {/* ⭐ 나가기 버튼만 남김 */}
                   <TouchableOpacity
                     style={styles.exitButton}
                     onPress={() => {
@@ -785,8 +762,7 @@ export default function GameScreen() {
                     • 같은 무늬 A → K 순으로 파운데이션에 쌓습니다.
                   </Text>
                   <Text style={styles.modalText}>
-                    • 아래 7줄은 색을 번갈아가며 숫자가 1씩 작아지는 카드만 올릴 수
-                    있습니다.
+                    • 아래 7줄은 색을 번갈아가며 숫자가 1씩 작아지는 카드만 올릴 수 있습니다.
                   </Text>
                   <Text style={styles.modalText}>
                     • 빈 열에는 K로 시작하는 카드 묶음만 놓을 수 있습니다.
@@ -796,6 +772,7 @@ export default function GameScreen() {
                   </Text>
                 </>
               )}
+
             </ScrollView>
           </View>
         </View>
