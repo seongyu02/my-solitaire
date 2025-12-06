@@ -266,6 +266,9 @@ export default function GameScreen() {
   // -----------------------------
   // 이동 후 처리 (점수 포함)
   // -----------------------------
+    // -----------------------------
+  // 이동 후 처리 (점수 포함)
+  // -----------------------------
   const afterMove = async (updatedGameBase, deltaScore = 0) => {
     const moves = (game?.moves || 0) + 1;
 
@@ -283,12 +286,14 @@ export default function GameScreen() {
       setScore((prev) => prev + deltaScore);
     }
 
+    // ✅ 여기서 클리어 체크
     if (isGameWon(updated.foundations)) {
       const finalTime = formatTime(seconds);
       const finalMoves = updated.moves;
       const finalScore = score + deltaScore;
 
       try {
+        // 기록 저장
         const saved = await AsyncStorage.getItem("solitaire_records");
         let list = saved ? JSON.parse(saved) : [];
 
@@ -306,7 +311,12 @@ export default function GameScreen() {
           "solitaire_records",
           JSON.stringify(list)
         );
-      } catch (e) {}
+
+        // ✅ 클리어했으니까 이어하기용 게임 저장 삭제
+        await AsyncStorage.removeItem("solitaire_game");
+      } catch (e) {
+        console.log("클리어 처리 에러:", e);
+      }
 
       router.push({
         pathname: "/end",
