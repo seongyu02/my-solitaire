@@ -669,7 +669,7 @@ export default function GameScreen() {
             </TouchableOpacity>
 
             <Text style={styles.modalTitle}>
-              {modalType === "settings" ? "설정" : "게임 규칙"}
+              {modalType === "settings" ? "설정" : "규칙"}
             </Text>
 
             {modalType === "settings" ? (
@@ -757,7 +757,7 @@ export default function GameScreen() {
                     <View style={styles.scoreTable}>
                       <View style={[styles.scoreRow, styles.scoreHeaderRow]}>
                         <Text style={[styles.scoreCellAction, styles.scoreHeaderText]}>
-                          행동 (Action)
+                          조작
                         </Text>
                         <Text style={[styles.scoreCellPoints, styles.scoreHeaderText]}>
                           점수
@@ -768,7 +768,7 @@ export default function GameScreen() {
                       </View>
 
                       <View style={styles.scoreRow}>
-                        <Text style={styles.scoreCellAction}>Foundations로 이동</Text>
+                        <Text style={styles.scoreCellAction}>빈 a칸으로 이동</Text>
                         <Text style={styles.scoreCellPoints}>+10</Text>
                         <Text style={styles.scoreCellNote}>최종 목표 보상</Text>
                       </View>
@@ -1085,7 +1085,8 @@ const styles = StyleSheet.create({
 
   scoreHeaderText: {
     fontWeight: "700",
-    color: "#ffffff"
+    color: "#ffffff",
+    textAlign: "center"
   },
 
   scoreCellAction: {
