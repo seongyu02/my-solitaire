@@ -65,10 +65,10 @@ export default function StartScreen() {
       await AsyncStorage.setItem("card_theme", theme);
       setCardTheme(theme);
       Alert.alert(
-        "카드 이미지 변경",
+        "커스터마이징 변경",
         theme === "original"
-          ? "오리지널 카드 이미지가 적용되었습니다."
-          : "기본 카드 이미지가 적용되었습니다."
+          ? "기본 카드가 적용되었습니다."
+          : "스킨 카드가 적용되었습니다."
       );
     } catch (e) {
       console.log("카드 테마 저장 에러:", e);
@@ -180,27 +180,10 @@ export default function StartScreen() {
       {showThemeModal && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>카드 이미지 선택</Text>
+            <Text style={styles.modalTitle}>커스터마이징</Text>
 
             <View style={styles.cardRow}>
-              {/* 기본 카드 (base) */}
-              <TouchableOpacity
-                style={[
-                  styles.cardChoice,
-                  pendingTheme === "base" && styles.cardChoiceSelected
-                ]}
-                onPress={() => setPendingTheme("base")}
-                activeOpacity={0.8}
-              >
-                <Image
-                  source={baseSample}
-                  style={styles.cardPreview}
-                  resizeMode="contain"
-                />
-                <Text style={styles.cardLabel}>기본 카드</Text>
-              </TouchableOpacity>
-
-              {/* 오리지널 카드 (original) */}
+              {/* 기본 카드 (original) */}
               <TouchableOpacity
                 style={[
                   styles.cardChoice,
@@ -214,7 +197,24 @@ export default function StartScreen() {
                   style={styles.cardPreview}
                   resizeMode="contain"
                 />
-                <Text style={styles.cardLabel}>오리지널 카드</Text>
+                <Text style={styles.cardLabel}>기본 카드</Text>
+              </TouchableOpacity>
+
+              {/* 스킨 카드 (base) */}
+              <TouchableOpacity
+                style={[
+                  styles.cardChoice,
+                  pendingTheme === "base" && styles.cardChoiceSelected
+                ]}
+                onPress={() => setPendingTheme("base")}
+                activeOpacity={0.8}
+              >
+                <Image
+                  source={baseSample}
+                  style={styles.cardPreview}
+                  resizeMode="contain"
+                />
+                <Text style={styles.cardLabel}>스킨 카드</Text>
               </TouchableOpacity>
             </View>
 
