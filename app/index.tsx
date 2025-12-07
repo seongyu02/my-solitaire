@@ -8,7 +8,6 @@ import StartScreen from "../src/screens/StartScreen";
 
 export default function Index() {
   useEffect(() => {
-    // ✅ 안드로이드 하단 네비게이션바 숨기기
     const hideNavBar = async () => {
       if (Platform.OS !== "android") return;
 

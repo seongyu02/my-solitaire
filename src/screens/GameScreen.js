@@ -10,7 +10,8 @@ import {
   Switch,
   Text,
   TouchableOpacity,
-  View
+  View,
+  Image
 } from "react-native";
 
 import { router } from "expo-router";
@@ -25,6 +26,10 @@ import {
   isGameWon,
   isValidSequence
 } from "../game/rules";
+
+// 하단바 아이콘 이미지
+import settingImg from "../assets/images/setting.png";
+import bookImg from "../assets/images/book.png";
 
 export default function GameScreen() {
   const [game, setGame] = useState(null);
@@ -43,6 +48,9 @@ export default function GameScreen() {
 
   // 점수
   const [score, setScore] = useState(0);
+
+  // ⭐ 규칙 모달 안에서 탭 상태 (게임 / 점수)
+  const [rulesTab, setRulesTab] = useState("game");
 
   // 타이머
   useEffect(() => {
@@ -264,9 +272,6 @@ export default function GameScreen() {
   };
 
   // -----------------------------
-  // 이동 후 처리 (점수 포함)
-  // -----------------------------
-    // -----------------------------
   // 이동 후 처리 (점수 포함)
   // -----------------------------
   const afterMove = async (updatedGameBase, deltaScore = 0) => {
@@ -690,22 +695,31 @@ export default function GameScreen() {
 
       {/* 하단 바 */}
       <View style={styles.bottomBar}>
+        {/* 설정 버튼 (아이콘 + 텍스트) */}
         <TouchableOpacity
           style={styles.bottomSide}
           onPress={() => setModalType("settings")}
+          activeOpacity={0.7}
         >
+          <Image source={settingImg} style={styles.bottomIcon} />
           <Text style={styles.bottomLabel}>설정</Text>
         </TouchableOpacity>
 
-        {/* ⭐ 버튼 텍스트 & 동작 변경: 랜덤 게임 → 다시 섞기 + reshuffleGame */}
+        {/* 다시 섞기 버튼 */}
         <TouchableOpacity style={styles.randomButton} onPress={reshuffleGame}>
           <Text style={styles.randomButtonText}>다시 섞기</Text>
         </TouchableOpacity>
 
+        {/* 규칙 버튼 (아이콘 + 텍스트) */}
         <TouchableOpacity
           style={styles.bottomSide}
-          onPress={() => setModalType("rules")}
+          onPress={() => {
+            setRulesTab("game"); // 규칙 모달 열 때 기본 탭
+            setModalType("rules");
+          }}
+          activeOpacity={0.7}
         >
+          <Image source={bookImg} style={styles.bottomIcon} />
           <Text style={styles.bottomLabel}>규칙</Text>
         </TouchableOpacity>
       </View>
@@ -727,53 +741,156 @@ export default function GameScreen() {
               {modalType === "settings" ? "설정" : "게임 규칙"}
             </Text>
 
-            <ScrollView style={styles.modalBody}>
-              {modalType === "settings" ? (
-                <>
-                  <View style={styles.settingRow}>
-                    <Text style={styles.modalTextLabel}>배경 음악</Text>
-                    <Switch value={bgmEnabled} onValueChange={setBgmEnabled} />
-                  </View>
+            {modalType === "settings" ? (
+              <ScrollView style={styles.modalBody}>
+                <View style={styles.settingRow}>
+                  <Text style={styles.modalTextLabel}>배경 음악</Text>
+                  <Switch value={bgmEnabled} onValueChange={setBgmEnabled} />
+                </View>
 
-                  <View style={styles.settingRow}>
-                    <Text style={styles.modalTextLabel}>효과음</Text>
-                    <Switch value={sfxEnabled} onValueChange={setSfxEnabled} />
-                  </View>
+                <View style={styles.settingRow}>
+                  <Text style={styles.modalTextLabel}>효과음</Text>
+                  <Switch value={sfxEnabled} onValueChange={setSfxEnabled} />
+                </View>
 
-                  <View style={styles.settingDivider} />
+                <View style={styles.settingDivider} />
 
-                  {/* ⭐ 나가기 버튼만 남김 */}
+                {/* 나가기 버튼만 남김 */}
+                <TouchableOpacity
+                  style={styles.exitButton}
+                  onPress={() => {
+                    setModalType(null);
+                    router.replace("/");
+                  }}
+                >
+                  <Text style={styles.exitButtonText}>나가기</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            ) : (
+              <>
+                {/* ⭐ 규칙 탭 버튼 (게임 룰 / 점수 룰) */}
+                <View style={styles.rulesTabRow}>
                   <TouchableOpacity
-                    style={styles.exitButton}
-                    onPress={() => {
-                      setModalType(null);
-                      router.replace("/");
-                    }}
+                    style={[
+                      styles.rulesTabButton,
+                      rulesTab === "game" && styles.rulesTabButtonActive
+                    ]}
+                    onPress={() => setRulesTab("game")}
                   >
-                    <Text style={styles.exitButtonText}>나가기</Text>
+                    <Text
+                      style={[
+                        styles.rulesTabButtonText,
+                        rulesTab === "game" && styles.rulesTabButtonTextActive
+                      ]}
+                    >
+                      게임 룰
+                    </Text>
                   </TouchableOpacity>
-                </>
-              ) : (
-                <>
-                  <Text style={styles.modalText}>
-                    • 기본 클론다이크(1장 뽑기) 규칙을 사용합니다.
-                  </Text>
-                  <Text style={styles.modalText}>
-                    • 같은 무늬 A → K 순으로 파운데이션에 쌓습니다.
-                  </Text>
-                  <Text style={styles.modalText}>
-                    • 아래 7줄은 색을 번갈아가며 숫자가 1씩 작아지는 카드만 올릴 수 있습니다.
-                  </Text>
-                  <Text style={styles.modalText}>
-                    • 빈 열에는 K로 시작하는 카드 묶음만 놓을 수 있습니다.
-                  </Text>
-                  <Text style={styles.modalText}>
-                    • 덱을 눌러 새 카드를 뽑고, 버린 카드 맨 위만 사용할 수 있습니다.
-                  </Text>
-                </>
-              )}
+                  <TouchableOpacity
+                    style={[
+                      styles.rulesTabButton,
+                      rulesTab === "score" && styles.rulesTabButtonActive
+                    ]}
+                    onPress={() => setRulesTab("score")}
+                  >
+                    <Text
+                      style={[
+                        styles.rulesTabButtonText,
+                        rulesTab === "score" && styles.rulesTabButtonTextActive
+                      ]}
+                    >
+                      점수 룰
+                    </Text>
+                  </TouchableOpacity>
+                </View>
 
-            </ScrollView>
+                <ScrollView style={styles.modalBody}>
+                  {rulesTab === "game" ? (
+                    <>
+                      <Text style={styles.modalText}>
+                        • 기본 클론다이크(1장 뽑기) 규칙을 사용합니다.
+                      </Text>
+                      <Text style={styles.modalText}>
+                        • 같은 무늬 A → K 순으로 파운데이션에 쌓습니다.
+                      </Text>
+                      <Text style={styles.modalText}>
+                        • 아래 7줄은 색을 번갈아가며 숫자가 1씩 작아지는 카드만 올릴 수 있습니다.
+                      </Text>
+                      <Text style={styles.modalText}>
+                        • 빈 열에는 K로 시작하는 카드 묶음만 놓을 수 있습니다.
+                      </Text>
+                      <Text style={styles.modalText}>
+                        • 덱을 눌러 새 카드를 뽑고, 버린 카드 맨 위만 사용할 수 있습니다.
+                      </Text>
+                    </>
+                  ) : (
+                    <View style={styles.scoreTable}>
+                      <View style={[styles.scoreRow, styles.scoreHeaderRow]}>
+                        <Text style={[styles.scoreCellAction, styles.scoreHeaderText]}>
+                          행동 (Action)
+                        </Text>
+                        <Text style={[styles.scoreCellPoints, styles.scoreHeaderText]}>
+                          점수
+                        </Text>
+                        <Text style={[styles.scoreCellNote, styles.scoreHeaderText]}>
+                          비고
+                        </Text>
+                      </View>
+
+                      <View style={styles.scoreRow}>
+                        <Text style={styles.scoreCellAction}>Foundations로 이동</Text>
+                        <Text style={styles.scoreCellPoints}>+10</Text>
+                        <Text style={styles.scoreCellNote}>
+                          게임의 최종 목표이므로 가장 높은 점수를 줍니다.
+                        </Text>
+                      </View>
+
+                      <View style={styles.scoreRow}>
+                        <Text style={styles.scoreCellAction}>Tableau(7열) 간 이동</Text>
+                        <Text style={styles.scoreCellPoints}>+5</Text>
+                        <Text style={styles.scoreCellNote}>
+                          카드를 섞거나 순서를 정리할 때 점수를 줍니다.
+                        </Text>
+                      </View>
+
+                      <View style={styles.scoreRow}>
+                        <Text style={styles.scoreCellAction}>Deck → Tableau 이동</Text>
+                        <Text style={styles.scoreCellPoints}>+5</Text>
+                        <Text style={styles.scoreCellNote}>
+                          덱에서 바로 테이블로 카드를 놓을 때 점수를 줍니다.
+                        </Text>
+                      </View>
+
+                      <View style={styles.scoreRow}>
+                        <Text style={styles.scoreCellAction}>뒷면 카드 뒤집기</Text>
+                        <Text style={styles.scoreCellPoints}>+5</Text>
+                        <Text style={styles.scoreCellNote}>
+                          막혀 있던 카드를 열었을 때 점수를 줍니다.
+                        </Text>
+                      </View>
+
+                      <View style={styles.scoreRow}>
+                        <Text style={styles.scoreCellAction}>
+                          Foundations → Tableau 복귀
+                        </Text>
+                        <Text style={styles.scoreCellPoints}>-15</Text>
+                        <Text style={styles.scoreCellNote}>
+                          완성 덱에 갔던 카드를 다시 꺼내면 감점합니다.
+                        </Text>
+                      </View>
+
+                      <View style={styles.scoreRow}>
+                        <Text style={styles.scoreCellAction}>Waste 재활용</Text>
+                        <Text style={styles.scoreCellPoints}>-20</Text>
+                        <Text style={styles.scoreCellNote}>
+                          버린 카드를 다시 덱으로 되돌릴 때 감점합니다.
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                </ScrollView>
+              </>
+            )}
           </View>
         </View>
       )}
@@ -897,6 +1014,14 @@ const styles = StyleSheet.create({
     fontSize: 11
   },
 
+  bottomIcon: {
+    width: 26,
+    height: 26,
+    marginBottom: 4,
+    resizeMode: "contain",
+    tintColor: "#ffffff"
+  },
+
   randomButton: {
     paddingHorizontal: 22,
     paddingVertical: 6,
@@ -1005,5 +1130,82 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontWeight: "600",
     fontSize: 14
+  },
+
+  // ⭐ 추가된 규칙 탭 스타일
+  rulesTabRow: {
+    flexDirection: "row",
+    marginTop: 8,
+    borderRadius: 8,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#333"
+  },
+
+  rulesTabButton: {
+    flex: 1,
+    paddingVertical: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.05)"
+  },
+
+  rulesTabButtonActive: {
+    backgroundColor: "rgba(255,255,255,0.18)"
+  },
+
+  rulesTabButtonText: {
+    color: "#cccccc",
+    fontSize: 13,
+    fontWeight: "600"
+  },
+
+  rulesTabButtonTextActive: {
+    color: "#ffffff"
+  },
+
+  // ⭐ 추가된 점수 룰 테이블 스타일
+  scoreTable: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#444",
+    borderRadius: 8,
+    overflow: "hidden"
+  },
+
+  scoreRow: {
+    flexDirection: "row",
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#333"
+  },
+
+  scoreHeaderRow: {
+    backgroundColor: "rgba(255,255,255,0.08)"
+  },
+
+  scoreHeaderText: {
+    fontWeight: "700",
+    color: "#ffffff"
+  },
+
+  scoreCellAction: {
+    flex: 1.4,
+    color: "#f0f0f0",
+    fontSize: 12
+  },
+
+  scoreCellPoints: {
+    flex: 0.6,
+    color: "#f0f0f0",
+    fontSize: 12,
+    textAlign: "center"
+  },
+
+  scoreCellNote: {
+    flex: 2,
+    color: "#d0d0d0",
+    fontSize: 11
   }
 });
