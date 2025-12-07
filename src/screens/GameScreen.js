@@ -49,8 +49,15 @@ export default function GameScreen() {
   // 점수
   const [score, setScore] = useState(0);
 
-  // ⭐ 규칙 모달 안에서 탭 상태 (게임 / 점수)
+  // ⭐ 규칙 모달 안의 탭 상태
   const [rulesTab, setRulesTab] = useState("game");
+
+  // ------------------------------------
+  // 시간 페널티 계산 (1초당 -0.2점)
+  // ------------------------------------
+  const getTimePenalty = (sec) => {
+    return Math.floor(sec * 0.2);
+  };
 
   // 타이머
   useEffect(() => {
@@ -199,7 +206,7 @@ export default function GameScreen() {
   };
 
   // -----------------------------
-  // 게임 리셋 (완전 리셋 - 설정에서 "게임 종료"용)
+  // 게임 리셋
   // -----------------------------
   const resetGame = async () => {
     await playSfx();
@@ -213,9 +220,9 @@ export default function GameScreen() {
     await AsyncStorage.setItem("solitaire_game", JSON.stringify(newGame));
   };
 
-  // ⭐-----------------------------
-  // ⭐ 다시 섞기 (시간/이동 유지 + 점수만 0으로, 덱 재생성)
-  // ⭐-----------------------------
+  // -----------------------------
+  // 다시 섞기 (점수만 0 초기화)
+  // -----------------------------
   const reshuffleGame = async () => {
     if (!game) return;
     await playSfx();
@@ -223,11 +230,9 @@ export default function GameScreen() {
     let newGame = initGame();
     newGame = ensureFoundations(newGame);
 
-    // 이동 수는 기존 값 유지
     const prevMoves = typeof game.moves === "number" ? game.moves : 0;
     newGame.moves = prevMoves;
 
-    // 선택 해제, 시간 유지, 점수만 0으로
     setSelected(null);
     setScore(0);
     setGame(newGame);
@@ -243,7 +248,6 @@ export default function GameScreen() {
     setGame((prev) => {
       if (!prev) return prev;
 
-      // 덱이 비었으면 waste를 다시 덱으로
       if (prev.deck.length === 0) {
         const newDeck = prev.waste.map((card) => ({
           ...card,
@@ -254,14 +258,9 @@ export default function GameScreen() {
           setScore((prevScore) => prevScore - 20);
         }
 
-        return {
-          ...prev,
-          deck: newDeck,
-          waste: []
-        };
+        return { ...prev, deck: newDeck, waste: [] };
       }
 
-      // 덱에서 카드 한 장 뽑아 waste에 올림
       const top = { ...prev.deck[0], faceUp: true };
       const newWaste = [...prev.waste, top];
       const newDeck = prev.deck.slice(1);
@@ -272,15 +271,12 @@ export default function GameScreen() {
   };
 
   // -----------------------------
-  // 이동 후 처리 (점수 포함)
+  // 이동 후 처리 + 클리어 체크
   // -----------------------------
   const afterMove = async (updatedGameBase, deltaScore = 0) => {
     const moves = (game?.moves || 0) + 1;
 
-    const updated = {
-      ...updatedGameBase,
-      moves
-    };
+    const updated = { ...updatedGameBase, moves };
 
     setGame(updated);
     setSelected(null);
@@ -291,15 +287,21 @@ export default function GameScreen() {
       setScore((prev) => prev + deltaScore);
     }
 
-    // ✅ 여기서 클리어 체크
+    // -------------------------------------
+    // 클리어 체크
+    // -------------------------------------
     if (isGameWon(updated.foundations)) {
       const finalTime = formatTime(seconds);
       const finalMoves = updated.moves;
-      const finalScore = score + deltaScore;
+
+      // ⭐ 시간 페널티 적용
+      const timePenalty = getTimePenalty(seconds);
+
+      // ⭐ 최종 점수 계산 (감점 반영)
+      const finalScore = Math.max(score - timePenalty + deltaScore, 0);
 
       try {
-        // 기록 저장
-        const saved = await AsyncStorage.getItem("solitaire_records");
+        let saved = await AsyncStorage.getItem("solitaire_records");
         let list = saved ? JSON.parse(saved) : [];
 
         list.push({
@@ -317,7 +319,6 @@ export default function GameScreen() {
           JSON.stringify(list)
         );
 
-        // ✅ 클리어했으니까 이어하기용 게임 저장 삭제
         await AsyncStorage.removeItem("solitaire_game");
       } catch (e) {
         console.log("클리어 처리 에러:", e);
@@ -351,7 +352,6 @@ export default function GameScreen() {
     const selCardIndex = selected.cardIndex ?? selected.index ?? null;
     let deltaScore = 0;
 
-    // 1) 테이블에서 선택된 카드 묶음 이동
     if (selected.pile === "tableau") {
       if (selCardIndex === null) return;
       const srcCol = columns[selected.columnIndex];
@@ -360,30 +360,22 @@ export default function GameScreen() {
       if (!isValidSequence(movingCards)) return;
 
       deltaScore += 5;
-    }
-    // 2) waste에서 선택된 카드 이동
-    else if (selected.pile === "waste") {
+    } else if (selected.pile === "waste") {
       const wasteIndex = selected.index ?? selected.cardIndex ?? null;
       if (wasteIndex !== waste.length - 1) return;
       movingCards = [selected.card];
 
       deltaScore += 5;
-    }
-    // foundation 선택은 여기서 처리하지 않음
-    else {
-      return;
-    }
+    } else return;
 
     const destCol = columns[destColumnIndex];
     if (!canMoveToTableau(movingCards, destCol)) return;
 
-    // 원래 위치에서 제거
     if (selected.pile === "tableau") {
       const srcCol = columns[selected.columnIndex];
       const remain = srcCol.slice(0, selCardIndex);
       columns[selected.columnIndex] = remain;
 
-      // 뒤집을 카드가 있으면 뒤집기
       if (remain.length > 0 && !remain[remain.length - 1].faceUp) {
         columns[selected.columnIndex][remain.length - 1] = {
           ...remain[remain.length - 1],
@@ -392,21 +384,12 @@ export default function GameScreen() {
         deltaScore += 5;
       }
     } else {
-      // waste
       waste = waste.slice(0, waste.length - 1);
     }
 
-    // 목적지에 카드들 추가
     columns[destColumnIndex] = [...destCol, ...movingCards];
 
-    const newGame = {
-      ...game,
-      columns,
-      foundations,
-      deck,
-      waste
-    };
-
+    const newGame = { ...game, columns, foundations, deck, waste };
     afterMove(newGame, deltaScore);
   };
 
@@ -431,8 +414,7 @@ export default function GameScreen() {
 
       card = srcCol[selCardIndex];
       if (!card.faceUp) return;
-      if (!canMoveToFoundation(card, foundations[foundationIndex]))
-        return;
+      if (!canMoveToFoundation(card, foundations[foundationIndex])) return;
 
       const remain = srcCol.slice(0, srcCol.length - 1);
       columns[selected.columnIndex] = remain;
@@ -452,35 +434,20 @@ export default function GameScreen() {
 
       card = selected.card;
 
-      if (!canMoveToFoundation(card, foundations[foundationIndex]))
-        return;
+      if (!canMoveToFoundation(card, foundations[foundationIndex])) return;
 
       waste = waste.slice(0, waste.length - 1);
-
       deltaScore += 10;
-    } else {
-      // foundation에서 foundation으로는 이동 불가
-      return;
-    }
+    } else return;
 
-    foundations[foundationIndex] = [
-      ...foundations[foundationIndex],
-      card
-    ];
+    foundations[foundationIndex] = [...foundations[foundationIndex], card];
 
-    const newGame = {
-      ...game,
-      columns,
-      foundations,
-      deck,
-      waste
-    };
-
+    const newGame = { ...game, columns, foundations, deck, waste };
     afterMove(newGame, deltaScore);
   };
 
   // -----------------------------
-  // 파운데이션 → 컬럼 (클론다이크 룰)
+  // 파운데이션 → 컬럼
   // -----------------------------
   const moveFoundationToColumn = (destColumnIndex) => {
     if (!selected || !game) return;
@@ -493,62 +460,40 @@ export default function GameScreen() {
 
     const fIndex = selected.foundationIndex;
     const pile = foundations[fIndex];
-
     if (!pile || pile.length === 0) return;
 
-    // 항상 top 카드만 이동 가능
     const topIndex = pile.length - 1;
     const selIndex = selected.index ?? topIndex;
     if (selIndex !== topIndex) return;
 
     const card = pile[topIndex];
-
     const destCol = columns[destColumnIndex];
-    const movingCards = [card];
 
-    // 기존 룰 함수 재사용
-    if (!canMoveToTableau(movingCards, destCol)) return;
+    if (!canMoveToTableau([card], destCol)) return;
 
-    // foundation에서 제거
     foundations[fIndex] = pile.slice(0, pile.length - 1);
+    columns[destColumnIndex] = [...destCol, { ...card, faceUp: true }];
 
-    // 컬럼에 추가 (이미 faceUp일 것이지만 한 번 더 보장)
-    columns[destColumnIndex] = [
-      ...destCol,
-      { ...card, faceUp: true }
-    ];
-
-    const newGame = {
-      ...game,
-      columns,
-      foundations,
-      deck,
-      waste
-    };
-
-    // 파운데이션에서 내리면 페널티 (원하면 값 조절 가능)
+    const newGame = { ...game, columns, foundations, deck, waste };
     afterMove(newGame, -15);
   };
 
   // -----------------------------
-  // 카드 탭
+  // 카드 누르기
   // -----------------------------
   const handleCardPress = (info) => {
     if (!game) return;
 
-    // 1) foundation 카드가 선택된 상태에서 컬럼 카드 누르면
     if (selected && selected.pile === "foundation") {
       moveFoundationToColumn(info.columnIndex);
       return;
     }
 
-    // 2) 아직 아무것도 선택 안 했으면 방금 카드 선택
     if (!selected) {
       setSelected(info);
       return;
     }
 
-    // 3) 같은 카드 다시 누르면 선택 해제
     if (
       selected.pile === info.pile &&
       selected.columnIndex === info.columnIndex &&
@@ -558,22 +503,16 @@ export default function GameScreen() {
       return;
     }
 
-    // 4) tableau 이외의 더미에서는 top 카드만 대상으로
-    if (info.pile !== "tableau" && !info.isTop?.isTop) {
-      return;
-    }
+    if (info.pile !== "tableau" && !info.isTop?.isTop) return;
 
-    // 5) 일반적인 이동 (waste/tableau → tableau)
     moveSelectionToColumn(info.columnIndex);
   };
 
   const handleEmptyColumnPress = (columnIndex) => {
-    // foundation 카드 선택된 상태라면 파운데이션 → 빈 컬럼
     if (selected?.pile === "foundation") {
       moveFoundationToColumn(columnIndex);
       return;
     }
-    // 그 외는 기존 로직
     moveSelectionToColumn(columnIndex);
   };
 
@@ -595,24 +534,20 @@ export default function GameScreen() {
     if (!game) return;
     const foundationIndex = info.foundationIndex;
 
-    // 1) 아무것도 선택 안 된 상태에서 파운데이션 누르면 -> 그 파운데이션 top 카드 선택
     if (!selected) {
       const pile = game.foundations[foundationIndex];
       if (!pile || pile.length === 0) return;
 
       const topIndex = pile.length - 1;
-      const topCard = pile[topIndex];
-
       setSelected({
         pile: "foundation",
         foundationIndex,
         index: topIndex,
-        card: topCard
+        card: pile[topIndex]
       });
       return;
     }
 
-    // 2) 이미 같은 파운데이션이 선택되어 있으면 -> 선택 해제
     if (
       selected.pile === "foundation" &&
       selected.foundationIndex === foundationIndex
@@ -621,7 +556,6 @@ export default function GameScreen() {
       return;
     }
 
-    // 3) 그 외 (tableau/waste 선택 상태에서 파운데이션 누르면) -> 파운데이션으로 올리기
     moveSelectionToFoundation(foundationIndex);
   };
 
@@ -645,7 +579,7 @@ export default function GameScreen() {
   // -----------------------------
   return (
     <View style={styles.root}>
-      {/* ⭐ 상단바: 왼쪽(시간/이동 세로), 오른쪽(점수) */}
+      {/* 상단바 */}
       <View style={styles.statusBar}>
         <View style={styles.statusLeft}>
           <Text style={styles.statusTime}>{formatTime(seconds)}</Text>
@@ -695,7 +629,6 @@ export default function GameScreen() {
 
       {/* 하단 바 */}
       <View style={styles.bottomBar}>
-        {/* 설정 버튼 (아이콘 + 텍스트) */}
         <TouchableOpacity
           style={styles.bottomSide}
           onPress={() => setModalType("settings")}
@@ -705,16 +638,14 @@ export default function GameScreen() {
           <Text style={styles.bottomLabel}>설정</Text>
         </TouchableOpacity>
 
-        {/* 다시 섞기 버튼 */}
         <TouchableOpacity style={styles.randomButton} onPress={reshuffleGame}>
           <Text style={styles.randomButtonText}>다시 섞기</Text>
         </TouchableOpacity>
 
-        {/* 규칙 버튼 (아이콘 + 텍스트) */}
         <TouchableOpacity
           style={styles.bottomSide}
           onPress={() => {
-            setRulesTab("game"); // 규칙 모달 열 때 기본 탭
+            setRulesTab("game");
             setModalType("rules");
           }}
           activeOpacity={0.7}
@@ -755,7 +686,6 @@ export default function GameScreen() {
 
                 <View style={styles.settingDivider} />
 
-                {/* 나가기 버튼만 남김 */}
                 <TouchableOpacity
                   style={styles.exitButton}
                   onPress={() => {
@@ -768,7 +698,6 @@ export default function GameScreen() {
               </ScrollView>
             ) : (
               <>
-                {/* ⭐ 규칙 탭 버튼 (게임 룰 / 점수 룰) */}
                 <View style={styles.rulesTabRow}>
                   <TouchableOpacity
                     style={[
@@ -786,6 +715,7 @@ export default function GameScreen() {
                       게임 룰
                     </Text>
                   </TouchableOpacity>
+
                   <TouchableOpacity
                     style={[
                       styles.rulesTabButton,
@@ -814,13 +744,13 @@ export default function GameScreen() {
                         • 같은 무늬 A → K 순으로 파운데이션에 쌓습니다.
                       </Text>
                       <Text style={styles.modalText}>
-                        • 아래 7줄은 색을 번갈아가며 숫자가 1씩 작아지는 카드만 올릴 수 있습니다.
+                        • 아래 7열은 색 번갈아 숫자 1씩 감소하는 카드만 놓을 수 있습니다.
                       </Text>
                       <Text style={styles.modalText}>
                         • 빈 열에는 K로 시작하는 카드 묶음만 놓을 수 있습니다.
                       </Text>
                       <Text style={styles.modalText}>
-                        • 덱을 눌러 새 카드를 뽑고, 버린 카드 맨 위만 사용할 수 있습니다.
+                        • 덱을 눌러 버린 카드 맨 위만 사용할 수 있습니다.
                       </Text>
                     </>
                   ) : (
@@ -840,51 +770,37 @@ export default function GameScreen() {
                       <View style={styles.scoreRow}>
                         <Text style={styles.scoreCellAction}>Foundations로 이동</Text>
                         <Text style={styles.scoreCellPoints}>+10</Text>
-                        <Text style={styles.scoreCellNote}>
-                          게임의 최종 목표이므로 가장 높은 점수를 줍니다.
-                        </Text>
+                        <Text style={styles.scoreCellNote}>최종 목표 보상</Text>
                       </View>
 
                       <View style={styles.scoreRow}>
-                        <Text style={styles.scoreCellAction}>Tableau(7열) 간 이동</Text>
+                        <Text style={styles.scoreCellAction}>Tableau 간 이동</Text>
                         <Text style={styles.scoreCellPoints}>+5</Text>
-                        <Text style={styles.scoreCellNote}>
-                          카드를 섞거나 순서를 정리할 때 점수를 줍니다.
-                        </Text>
+                        <Text style={styles.scoreCellNote}>정리 보상</Text>
                       </View>
 
                       <View style={styles.scoreRow}>
-                        <Text style={styles.scoreCellAction}>Deck → Tableau 이동</Text>
+                        <Text style={styles.scoreCellAction}>덱 → 테이블</Text>
                         <Text style={styles.scoreCellPoints}>+5</Text>
-                        <Text style={styles.scoreCellNote}>
-                          덱에서 바로 테이블로 카드를 놓을 때 점수를 줍니다.
-                        </Text>
+                        <Text style={styles.scoreCellNote}>직접 이동 보상</Text>
                       </View>
 
                       <View style={styles.scoreRow}>
                         <Text style={styles.scoreCellAction}>뒷면 카드 뒤집기</Text>
                         <Text style={styles.scoreCellPoints}>+5</Text>
-                        <Text style={styles.scoreCellNote}>
-                          막혀 있던 카드를 열었을 때 점수를 줍니다.
-                        </Text>
+                        <Text style={styles.scoreCellNote}>진행도 보상</Text>
                       </View>
 
                       <View style={styles.scoreRow}>
-                        <Text style={styles.scoreCellAction}>
-                          Foundations → Tableau 복귀
-                        </Text>
+                        <Text style={styles.scoreCellAction}>완성 더미 → 복귀</Text>
                         <Text style={styles.scoreCellPoints}>-15</Text>
-                        <Text style={styles.scoreCellNote}>
-                          완성 덱에 갔던 카드를 다시 꺼내면 감점합니다.
-                        </Text>
+                        <Text style={styles.scoreCellNote}>패널티</Text>
                       </View>
 
                       <View style={styles.scoreRow}>
                         <Text style={styles.scoreCellAction}>Waste 재활용</Text>
                         <Text style={styles.scoreCellPoints}>-20</Text>
-                        <Text style={styles.scoreCellNote}>
-                          버린 카드를 다시 덱으로 되돌릴 때 감점합니다.
-                        </Text>
+                        <Text style={styles.scoreCellNote}>재사용 패널티</Text>
                       </View>
                     </View>
                   )}
@@ -924,7 +840,6 @@ const styles = StyleSheet.create({
     color: "#fff"
   },
 
-  // ⭐ 상단 상태바 (왼쪽: 시간/이동 세로, 오른쪽: 점수)
   statusBar: {
     height: 50,
     backgroundColor: "#001820",
@@ -936,7 +851,6 @@ const styles = StyleSheet.create({
     borderBottomColor: "#00352a"
   },
 
-  // 왼쪽 묶음(시간 + 이동)
   statusLeft: {
     flexDirection: "column",
     alignItems: "flex-start",
@@ -946,17 +860,15 @@ const styles = StyleSheet.create({
   statusTime: {
     color: "#ffe89b",
     fontSize: 14,
-    fontWeight: "bold",
-    marginBottom: 2
+    fontWeight: "bold"
   },
 
   statusMoves: {
     color: "#ffe89b",
-    fontWeight: "bold",
-    fontSize: 13
+    fontSize: 13,
+    fontWeight: "bold"
   },
 
-  // 오른쪽 (점수)
   statusScore: {
     color: "#ffe89b",
     fontSize: 13,
@@ -1106,18 +1018,6 @@ const styles = StyleSheet.create({
     marginVertical: 12
   },
 
-  endGameButton: {
-    paddingVertical: 10,
-    backgroundColor: "#aa3333",
-    borderRadius: 8,
-    alignItems: "center"
-  },
-
-  endGameButtonText: {
-    color: "#fff",
-    fontWeight: "bold"
-  },
-
   exitButton: {
     marginTop: 10,
     paddingVertical: 9,
@@ -1132,7 +1032,6 @@ const styles = StyleSheet.create({
     fontSize: 14
   },
 
-  // ⭐ 추가된 규칙 탭 스타일
   rulesTabRow: {
     flexDirection: "row",
     marginTop: 8,
@@ -1164,7 +1063,6 @@ const styles = StyleSheet.create({
     color: "#ffffff"
   },
 
-  // ⭐ 추가된 점수 룰 테이블 스타일
   scoreTable: {
     marginTop: 10,
     borderWidth: 1,
