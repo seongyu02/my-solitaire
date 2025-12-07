@@ -4,14 +4,13 @@ import { Audio } from "expo-av";
 import { BlurView } from "expo-blur";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Alert,
+  Image,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
   TouchableOpacity,
-  View,
-  Image
+  View
 } from "react-native";
 
 import { router } from "expo-router";
@@ -28,8 +27,8 @@ import {
 } from "../game/rules";
 
 // 하단바 아이콘 이미지
-import settingImg from "../assets/images/setting.png";
 import bookImg from "../assets/images/book.png";
+import settingImg from "../assets/images/setting.png";
 
 export default function GameScreen() {
   const [game, setGame] = useState(null);
@@ -768,13 +767,13 @@ export default function GameScreen() {
                       </View>
 
                       <View style={styles.scoreRow}>
-                        <Text style={styles.scoreCellAction}>빈 a칸으로 이동</Text>
+                        <Text style={styles.scoreCellAction}>파운데이션으로 이동</Text>
                         <Text style={styles.scoreCellPoints}>+10</Text>
                         <Text style={styles.scoreCellNote}>최종 목표 보상</Text>
                       </View>
 
                       <View style={styles.scoreRow}>
-                        <Text style={styles.scoreCellAction}>Tableau 간 이동</Text>
+                        <Text style={styles.scoreCellAction}>열 간 정리</Text>
                         <Text style={styles.scoreCellPoints}>+5</Text>
                         <Text style={styles.scoreCellNote}>정리 보상</Text>
                       </View>
