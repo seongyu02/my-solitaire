@@ -801,6 +801,12 @@ export default function GameScreen() {
                         <Text style={styles.scoreCellPoints}>-20</Text>
                         <Text style={styles.scoreCellNote}>재사용 패널티</Text>
                       </View>
+                      
+                      <View style={styles.scoreRow}>
+                        <Text style={styles.scoreCellAction}>플레이 시간</Text>
+                        <Text style={styles.scoreCellPoints}>s() X (-0.2)</Text>
+                        <Text style={styles.scoreCellNote}>시간 지연 패널티</Text>
+                      </View>
                     </View>
                   )}
                 </ScrollView>
@@ -1089,20 +1095,20 @@ const styles = StyleSheet.create({
   },
 
   scoreCellAction: {
-    flex: 1.4,
+    flex: 1.5,
     color: "#f0f0f0",
     fontSize: 12
   },
 
   scoreCellPoints: {
-    flex: 0.6,
+    flex: 2,
     color: "#f0f0f0",
     fontSize: 12,
     textAlign: "center"
   },
 
   scoreCellNote: {
-    flex: 2,
+    flex: 1.5,
     color: "#d0d0d0",
     fontSize: 11
   }
